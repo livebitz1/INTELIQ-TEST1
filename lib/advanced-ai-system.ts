@@ -247,7 +247,7 @@ export class AdvancedAISystem {
     }
     
     // Check for token names
-    for (const [symbol, info] of Object.entries(ENHANCED_TOKEN_INFO)) {
+    for (const [symbol, info] of Object.entries(ENHANCED_TOKEN_INFO) as [string, { name: string }][]) {
       if (normalizedMessage.includes(info.name.toLowerCase()) && !tokens.includes(symbol)) {
         tokens.push(symbol);
       }

@@ -339,7 +339,13 @@ export class AIContextManager {
     const { solBalance, tokenBalances } = await this.getWalletBalances();
     
     // Fetch transaction history if wallet is connected
-    let recentTransactions = [];
+    let recentTransactions: Array<{
+      timestamp: number;
+      type: string;
+      amount: number;
+      fromToken: string;
+      toToken?: string;
+    }> = [];
     if (this.walletAddress) {
       try {
         // Use the new provider to get transaction history
@@ -458,7 +464,7 @@ export class AIContextManager {
 - "When was my last swap?"`;
     
     // Generate suggested topics based on enhanced profile
-    const suggestedTopics = [];
+    const suggestedTopics: string[] = [];
     
     // More sophisticated topic suggestions based on expertise and interests
     if (profile.expertiseLevel === "advanced") {
@@ -537,5 +543,9 @@ export class AIContextManager {
         memoryEnabled: true
       } : null
     };
+  }
+
+  public getSessionId(): string {
+    return this.sessionId;
   }
 }

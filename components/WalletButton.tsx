@@ -91,7 +91,7 @@ export function WalletButton() {
               totalValueUsd: solBalance * 20,
               tokens: [],
               isLoading: false,
-              lastUpdated: new Date().toISOString(),
+              lastUpdated: Date.now(),
             },
           })
 

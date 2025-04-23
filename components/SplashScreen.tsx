@@ -39,14 +39,20 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
   
   // Trigger the onComplete callback when the animation finishes
   useEffect(() => {
+    let animationDelay: NodeJS.Timeout | undefined;
+    
     if (isVideoEnded) {
       // Small delay to allow the exit animation to play
-      const animationDelay = setTimeout(() => {
+      animationDelay = setTimeout(() => {
         onComplete();
       }, 500);
-      
-      return () => clearTimeout(animationDelay);
     }
+    
+    return () => {
+      if (animationDelay) {
+        clearTimeout(animationDelay);
+      }
+    };
   }, [isVideoEnded, onComplete]);
   
   // Handle video end event

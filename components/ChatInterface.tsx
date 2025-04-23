@@ -19,7 +19,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { SwapExecutor } from "@/components/SwapExecutor"
 import { TransferExecutor } from "@/components/TransferExecutor"
 import { TransactionConfirmationModal } from "@/components/TransactionConfirmationModal"
-import { TokenTransferService } from "@/lib/token-transfer-service"
+import { TokenTransferService, TransferResponse } from "@/lib/token-transfer-service"
 import { cryptoMarketService, type CryptoMarketData } from "@/lib/services/crypto-market-service"
 import { generateMarketIntelligence } from "@/lib/modules/crypto-market-intelligence"
 import { getCoinInfo } from "@/lib/modules/crypto-knowledge-base"
@@ -27,6 +27,7 @@ import { fetchTokenData } from "@/lib/services/token-data-service"
 import { CustomScrollbar } from "@/components/custom-scrollbar"
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import type { WalletContextState } from "@solana/wallet-adapter-react"
+import { PublicKey } from '@solana/web3.js'
 
 // SuggestionChip component for interactive suggestion buttons
 const SuggestionChip = ({ suggestion, onSelect }: { suggestion: string; onSelect: (s: string) => void }) => (
@@ -137,7 +138,7 @@ interface TransactionConfirmationModalProps {
 
 // Main ChatInterface component
 export function ChatInterface() {
-  const { publicKey, signTransaction, connected, wallet } = useWallet()
+  const wallet = useWallet()
   const { connection } = useConnection()
   const { walletData, setWalletAddress } = useWalletStore()
   const [messages, setMessages] = useState<AIMessage[]>([
@@ -173,6 +174,9 @@ export function ChatInterface() {
   const [isExecuting, setIsExecuting] = useState(false)
   const [transferIntent, setTransferIntent] = useState<any>(null)
   const [autoExecuteTransfer, setAutoExecuteTransfer] = useState<boolean>(false)
+  const [showTransactionConfirmation, setShowTransactionConfirmation] = useState(false)
+  const [isExecutingTransfer, setIsExecutingTransfer] = useState(false)
+  const [transaction, setTransaction] = useState<any>(null)
 
   // Fetch crypto market data
   useEffect(() => {
@@ -283,14 +287,16 @@ export function ChatInterface() {
 
   // Set wallet address when connected
   useEffect(() => {
-    if (publicKey) {
+    if (wallet.connected && wallet.publicKey) {
+      const publicKey = wallet.publicKey;
       setWalletAddress(publicKey.toString())
     }
-  }, [publicKey, connected, setWalletAddress])
+  }, [wallet.publicKey, wallet.connected, setWalletAddress])
 
   // Display welcome message when wallet is connected
   useEffect(() => {
-    if (connected && publicKey) {
+    if (wallet.connected && wallet.publicKey) {
+      const publicKey = wallet.publicKey;
       // Only add welcome message if it doesn't exist yet
       if (!messages.some((m) => m.content.includes("wallet is connected"))) {
         setMessages((prev) => [
@@ -313,7 +319,7 @@ export function ChatInterface() {
         ])
       }
     }
-  }, [connected, publicKey, walletData, messages])
+  }, [wallet.connected, wallet.publicKey, walletData, messages])
 
   // Auto-grow textarea as user types
   useEffect(() => {
@@ -375,347 +381,158 @@ export function ChatInterface() {
   }
 
   // Add a function to handle the test transfer of SOL with customizable amount
-  const testTransfer = async (amount = 0.00001, recipient = "6WPC5CuugBaBHAjbBuo1qfzVTyieE53D6tC2LQ5g27cG") => {
-    if (!publicKey || !signTransaction || !connected) {
-      setMessages((prev) => [
-        ...prev,
-        { 
-          role: "assistant", 
-          content: "❌ Wallet not connected. Please connect your wallet first to make this transfer." 
-        }
-      ]);
+  const testTransfer = async () => {
+    if (!wallet.connected || !wallet.publicKey) {
+      console.error('Wallet not connected');
       return;
     }
-    
-    // Check if user has enough SOL (amount + transaction fee)
-    const transactionFee = 0.000005; // Standard Solana transaction fee
-    if (walletData.solBalance < (amount + transactionFee)) {
-      setMessages((prev) => [
-        ...prev,
-        { 
-          role: "assistant", 
-          content: `❌ You don't have enough SOL for this transfer. Your current balance is ${walletData.solBalance.toFixed(6)} SOL, but you need at least ${(amount + transactionFee).toFixed(6)} SOL (including transaction fees).` 
-        }
-      ]);
-      return;
-    }
-    
-    // Add a message to show transfer is in progress
-    setMessages((prev) => [
-      ...prev,
-      { 
-        role: "assistant", 
-        content: `Sending ${amount} SOL to ${recipient.slice(0, 6)}...${recipient.slice(-4)}. Please confirm this transaction in your wallet.` 
-      }
-    ]);
-    
+
     try {
-      // Execute the transfer using the existing TokenTransferService
-      const result = await TokenTransferService.transferTokens(
-        {
-          publicKey,
-          signTransaction,
-          connected,
-          connecting: false,
-          disconnecting: false,
-          autoConnect: true,
-          wallets: [],
-          wallet: null,
-          select: () => {},
-          connect: () => Promise.resolve(),
-          disconnect: () => Promise.resolve(),
-          sendTransaction: async () => '',
-          signAllTransactions: async () => [],
-          signMessage: async () => new Uint8Array(),
-          signIn: async () => ({
-            account: { publicKey: publicKey },
-            signedMessage: new Uint8Array(),
-            signature: ''
-          })
-        } as WalletContextState,
-        recipient,
-        amount,
-        "SOL"
-      );
-      
-      if (result.success) {
-        // Add success message
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: `✅ Transfer successful! ${amount} SOL has been sent to ${recipient.slice(0, 6)}...${recipient.slice(-4)}\n\nTransaction ID: ${result.txId}\n${result.explorerUrl ? `[View on Solana Explorer](${result.explorerUrl})` : ""}`
-          }
-        ]);
-        
-        // Update suggestions
-        setSuggestions([
-          "Check my balance", 
-          "What else can you do?", 
-          "Show me my transactions"
-        ]);
-      } else {
-        // Add error message
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: `❌ Transfer failed: ${result.error || result.message || "Unknown error occurred."}`
-          }
-        ]);
-      }
+      const recipientAddress = wallet.publicKey.toBase58();
+      setShowTransactionConfirmation(true);
+      setTransaction({
+        type: 'transfer',
+        amount: '0.1',
+        token: 'SOL',
+        recipient: recipientAddress
+      });
     } catch (error) {
-      console.error("Error executing test transfer:", error);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: `❌ Transfer failed: ${error instanceof Error ? error.message : "Unknown error occurred."}`
-        }
-      ]);
+      console.error('Error in test transfer:', error);
     }
   };
 
   const handleSendMessage = async () => {
-    if (input.trim() === "" || isProcessing) return;
-
-    const userMessage = input.trim();
-    setInput("");
-
-    // Add user message to chat
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
-
-    // Set auto-scroll to true when user sends message
-    setShouldAutoScroll(true);
-
-    // Check if this is the specific test transfer command
-    const testTransferRegex = /send\s+(0\.\d+)\s+sol\s+to\s+(6WPC5CuugBaBHAjbBuo1qfzVTyieE53D6tC2LQ5g27cG)/i;
-    const testMatch = userMessage.match(testTransferRegex);
-    
-    if (testMatch) {
-      const amount = parseFloat(testMatch[1]);
-      const recipient = testMatch[2];
-      
-      // Only process if it's a small amount (less than 0.001 SOL) to ensure it's just for testing
-      if (amount <= 0.001) {
-        testTransfer(amount, recipient);
-        return;
-      }
-    }
-
-    // Show loading state
-    setIsProcessing(true);
+    if (!input.trim()) return;
 
     try {
-      // Check if message contains a contract address
-      const ethereumAddressRegex = /0x[a-fA-F0-9]{40}/
-      const solanaAddressRegex = /[1-9A-HJ-NP-Za-km-z]{32,44}/
+      setIsProcessing(true);
+      const userMessage: AIMessage = { role: "user", content: input };
+      setMessages((prev) => [...prev, userMessage]);
+      setInput("");
+      setSuggestions([]);
 
-      // Look for Ethereum/BSC addresses first
-      const ethMatch = userMessage.match(ethereumAddressRegex)
-      if (ethMatch) {
-        const contractAddress = ethMatch[0]
-
-        // Show loading message
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: `Analyzing token contract \`${contractAddress}\`. Let me fetch some data for you...`,
-          },
-        ])
-
-        try {
-          const tokenData = await fetchTokenData(contractAddress, "ethereum")
-
-          // Replace loading message with actual data
-          setMessages((prev) => {
-            const newMessages = [...prev]
-            newMessages[newMessages.length - 1] = {
-              role: "assistant",
-              content: tokenData || "I couldn't find any data for this token contract.",
-            }
-            return newMessages
-          })
-
-          // Update suggestions based on token context
-          setSuggestions([
-            "What's your opinion on this token?",
-            "Show me another token",
-            "Is this token trading on major exchanges?",
-          ])
-
-          setIsProcessing(false)
-          return
-        } catch (error) {
-          console.error("Error fetching token data:", error)
-          // Continue with other processing if token fetch fails
-        }
+      // Check wallet connection status
+      if (!wallet?.connected || !wallet?.publicKey) {
+        const assistantMessage: AIMessage = {
+          role: "assistant",
+          content: "Please connect your wallet first to perform any transactions.",
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+        setIsProcessing(false);
+        return;
       }
 
-      // Look for Solana addresses
-      const solMatch = userMessage.match(solanaAddressRegex)
-      if (solMatch) {
-        const potentialAddress = solMatch[0]
-        // Simple validation - actual validation would be more complex
-        if (potentialAddress.length >= 32 && potentialAddress.length <= 44) {
-          // Show loading message
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              content: `Analyzing Solana token \`${potentialAddress}\`. Let me fetch some data for you...`,
-            },
-          ])
-
-          try {
-            const tokenData = await fetchTokenData(potentialAddress, "solana")
-
-            // Replace loading message with actual data
-            setMessages((prev) => {
-              const newMessages = [...prev]
-              newMessages[newMessages.length - 1] = {
-                role: "assistant",
-                content: tokenData || "I couldn't find any data for this Solana token.",
-              }
-              return newMessages
-            })
-
-            setSuggestions([
-              "Tell me more about Solana tokens",
-              "How does this compare to Ethereum tokens?",
-              "Show me trending Solana tokens",
-            ])
-
-            setIsProcessing(false)
-            return
-          } catch (error) {
-            console.error("Error fetching Solana token data:", error)
-            // Continue with other processing if token fetch fails
-          }
-        }
-      }
-
-      // Check if this is a coin info request like "What is SOL?" or "Tell me about Bitcoin"
-      const coinRegex =
-        /what (?:is|are) ([A-Za-z0-9]+)|\b(?:tell|explain|info|information) (?:me )?(?:about )?\b([A-Za-z0-9]+)/i
-      const match = userMessage.match(coinRegex)
-      if (match) {
-        const symbol = (match[1] || match[2]).toUpperCase()
-        const coinResponse = generateCoinInfoResponse(symbol)
-        if (coinResponse) {
-          // If we have coin info, use it directly
-          setMessages((prev) => [...prev, { role: "assistant", content: coinResponse }])
-
-          // Update suggestions to include market-related queries
-          setSuggestions([
-            `What's the price of ${symbol}?`,
-            "What's another coin like this?",
-            "How is the market today?",
-          ])
-
-          setIsProcessing(false)
-          return
-        }
-      }
-
-      // Check if this is a market-related query and we have market data
-      if (marketData.length > 0) {
-        // Update to use async version of generateMarketIntelligence
-        const marketIntelligence = await generateMarketIntelligence(userMessage, marketData)
-
-        if (marketIntelligence) {
-          // If we have market intelligence, use it directly
-          setMessages((prev) => [...prev, { role: "assistant", content: marketIntelligence }])
-
-          // Update suggestions based on market context
-          if (userMessage.toLowerCase().includes("price")) {
-            setSuggestions(["How's the market today?"])
-          } else if (userMessage.toLowerCase().includes("market") || userMessage.toLowerCase().includes("trend")) {
-            setSuggestions(["What's the price of Bitcoin?", "Technical analysis of ETH"])
-          } else {
-            setSuggestions(["What's the price of Ethereum?", "Tell me about Solana"])
-          }
-
-          setIsProcessing(false)
-          return
-        }
-      }
-
-      // If not a market query or no market data available, proceed with the regular AI
-      const aiResponse = await parseUserIntent(userMessage, {
-        walletConnected: connected,
-        walletAddress: publicKey?.toString() || null,
+      // Parse user intent with proper error handling
+      const intent = await parseUserIntent(input, {
+        walletConnected: wallet.connected,
+        walletAddress: wallet.publicKey?.toString() || "",
         balance: walletData.solBalance || 0,
         tokenBalances: walletData.tokens || [],
-      })
+      });
 
-      // Handle AI response
-      handleAIResponse(aiResponse)
-
-      // Add AI response to chat
-      setMessages((prev) => [...prev, { role: "assistant", content: aiResponse.message }])
-
-      // Update suggestions if provided
-      if (aiResponse.suggestions && aiResponse.suggestions.length > 0) {
-        setSuggestions(aiResponse.suggestions)
-      }
+      // Handle the AI response with proper error handling
+      await handleAIResponse(intent);
     } catch (error) {
-      console.error("Error processing message:", error)
+      console.error("Error in handleSendMessage:", error);
+      const errorMessage: AIMessage = {
+        role: "assistant",
+        content: "I encountered an error processing your request. Please try again.",
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleAIResponse = async (intent: any) => {
+    try {
+      if (!wallet.connected || !wallet.publicKey) {
+        throw new Error("Wallet not connected");
+      }
+
+      if (intent.type === "SWAP") {
+        if (!intent.fromToken || !intent.toToken) {
+          throw new Error("Invalid swap parameters");
+        }
+        setPendingSwapIntent(intent);
+        setAutoExecuteSwap(intent.autoExecute || false);
+        setIsConfirmationOpen(true);
+      } else if (intent.type === "TRANSFER") {
+        if (!intent.recipient || !intent.amount) {
+          throw new Error("Invalid transfer parameters");
+        }
+        setTransferIntent(intent);
+        setAutoExecuteTransfer(intent.autoExecute || false);
+        setShowTransactionConfirmation(true);
+      }
+
+      // Add the AI response to messages
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "Sorry, I encountered an error processing your request. Please try again.",
+          content: intent.response || "I understand your request and will process it accordingly.",
         },
-      ])
+      ]);
+    } catch (error) {
+      console.error("Error in handleAIResponse:", error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: `Error: ${error.message || "An unexpected error occurred"}. Please try again.`,
+        },
+      ]);
+    }
+  };
+
+  const handleConfirmTransfer = async () => {
+    if (!transferIntent || !wallet.connected || !wallet.publicKey) {
+      console.error("Invalid transfer state or wallet not connected");
+      return;
+    }
+
+    try {
+      setIsExecutingTransfer(true);
+      await executeTransfer();
+    } catch (error) {
+      console.error("Transfer error:", error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: `Transfer failed: ${error.message || "An unexpected error occurred"}`,
+        },
+      ]);
     } finally {
-      setIsProcessing(false)
-      // Reset height after sending
-      if (inputRef.current) {
-        inputRef.current.style.height = "auto"
-      }
-      // Focus back on input
-      inputRef.current?.focus()
+      setIsExecutingTransfer(false);
+      setShowTransactionConfirmation(false);
+      setTransferIntent(null);
     }
-  }
+  };
 
-  const handleAIResponse = async (response: any) => {
-    // Check if the response has a swap intent
-    if (response.intent && response.intent.action === "swap") {
-      // Automatically set the intent for execution
-      setPendingSwapIntent(response.intent)
-      setAutoExecuteSwap(true)
-    } else {
-      // Clear any pending swap intents
-      setPendingSwapIntent(null)
-      setAutoExecuteSwap(false)
+  const executeTransfer = async () => {
+    if (!transferIntent || !wallet?.connected || !wallet?.publicKey) {
+      throw new Error("Invalid transfer state");
     }
 
-    // Check if the response includes a transfer intent
-    if (response.intent?.action === "transfer") {
-      setTransferIntent(response.intent)
+    try {
+      const result: TransferResponse = await TokenTransferService.transferTokens(
+        wallet as WalletContextState,
+        transferIntent.token,
+        transferIntent.amount,
+        transferIntent.recipient
+      );
 
-      // Add appropriate suggestions
-      if (!response.suggestions?.includes("Confirm")) {
-        response.suggestions = ["Confirm", "Cancel", ...(response.suggestions || [])]
-      }
-    } else {
-      setTransferIntent(null)
+      const successMessage: AIMessage = {
+        role: "assistant",
+        content: `Transfer successful! Transaction ID: ${result.txId}`,
+      };
+      setMessages((prev) => [...prev, successMessage]);
+    } catch (error) {
+      throw new Error(`Transfer failed: ${error.message || "Unknown error"}`);
     }
-
-    // If the response has a market data request, refresh market data
-    if (response.intent?.action === "marketData" && response.intent?.refresh === true) {
-      try {
-        await cryptoMarketService.refreshData()
-        const freshData = await cryptoMarketService.getTopCoins(30)
-        setMarketData(freshData)
-        setLastMarketUpdate(new Date())
-      } catch (error) {
-        console.error("Failed to refresh market data:", error)
-      }
-    }
-  }
+  };
 
   const handleSwapSuccess = (result: any) => {
     // Add a system message about the successful swap
@@ -741,91 +558,6 @@ export function ChatInterface() {
     setAutoExecuteSwap(false)
   }
 
-  const handleConfirmTransfer = async () => {
-    if (!transferIntent) return
-    setIsExecuting(true)
-    try {
-      // Add a pending message to show the user that something is happening
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: `Processing your transfer of ${transferIntent.amount} ${transferIntent.token} to ${transferIntent.recipient.slice(0, 4)}...${transferIntent.recipient.slice(-4)}...`,
-        },
-      ])
-
-      // No need to call TokenTransferService directly - TransferExecutor will handle it
-      // Just set autoExecute to true when we show the TransferExecutor
-      setAutoExecuteTransfer(true)
-    } catch (error) {
-      console.error("Error executing transfer:", error)
-    } finally {
-      setIsExecuting(false)
-      setIsConfirmationOpen(false)
-    }
-  }
-
-  const executeTransfer = async (intent: any) => {
-    if (!intent || !publicKey) {
-      console.error("Cannot execute transfer: missing intent or wallet not connected")
-      return
-    }
-
-    try {
-      const result = await TokenTransferService.transferTokens(
-        {
-          publicKey,
-          signTransaction,
-          connected,
-          connecting: false,
-          disconnecting: false,
-          autoConnect: true,
-          wallets: [],
-          wallet: null,
-          select: () => {},
-          connect: () => Promise.resolve(),
-          disconnect: () => Promise.resolve(),
-          sendTransaction: async () => '',
-          signAllTransactions: async () => [],
-          signMessage: async () => new Uint8Array(),
-          signIn: async () => ({
-            account: { publicKey: publicKey },
-            signedMessage: new Uint8Array(),
-            signature: ''
-          })
-        } as WalletContextState,
-        intent.recipient,
-        intent.amount,
-        intent.token,
-      )
-
-      if (result.success) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: `✅ Transfer successful! ${result.message}${
-              result.explorerUrl ? ` [View on Solana Explorer](${result.explorerUrl})` : ""
-            }`,
-          },
-        ])
-
-        // Refresh wallet data - assuming there's a refreshWalletData function available
-        if (typeof window !== "undefined") {
-          // This is a placeholder - actual implementation would depend on how you refresh wallet data
-          setTimeout(() => {
-            // Simulating wallet data refresh
-            console.log("Refreshing wallet data...")
-          }, 1000)
-        }
-      }
-    } catch (error) {
-      console.error("Error executing transfer:", error)
-    } finally {
-      setTransferIntent(null)
-    }
-  }
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
@@ -835,7 +567,7 @@ export function ChatInterface() {
 
   const handleSuggestionClick = (suggestion: string) => {
     if (suggestion === "Confirm" && transferIntent) {
-      executeTransfer(transferIntent)
+      executeTransfer()
       return
     } else if (suggestion === "Cancel" && transferIntent) {
       setMessages((prev) => [
@@ -871,7 +603,11 @@ export function ChatInterface() {
             <div>
               <h2 className="font-medium">AI Assistant</h2>
               <p className="text-xs text-muted-foreground">
-                {connected ? `Connected to ${formatWalletAddress(publicKey!.toString())}` : "Wallet not connected"}
+                {wallet.connected && wallet.publicKey ? (
+                  `Connected to ${formatWalletAddress(wallet.publicKey.toString())}`
+                ) : (
+                  "Wallet not connected"
+                )}
                 {marketDataLoaded && (
                   <span className="ml-2">
                     • Market data: <span className="text-green-500">Live</span>
@@ -1016,11 +752,11 @@ export function ChatInterface() {
 
       {/* Add confirmation modal */}
       <TransactionConfirmationModal
-        isOpen={isConfirmationOpen}
-        onClose={() => setIsConfirmationOpen(false)}
-        onConfirm={handleConfirmTransfer}
-        intent={transferIntent}
-        isLoading={isExecuting}
+        isOpen={showTransactionConfirmation}
+        onClose={() => setShowTransactionConfirmation(false)}
+        onConfirm={executeTransfer}
+        isExecuting={isExecutingTransfer}
+        transaction={transaction}
       />
 
       {/* Add custom CSS for animations */}

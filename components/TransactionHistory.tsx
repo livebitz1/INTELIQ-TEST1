@@ -92,17 +92,23 @@ export function TransactionHistory() {
   };
 
   useEffect(() => {
+    let interval: NodeJS.Timeout | undefined;
+    
     if (publicKey) {
       fetchTransactions();
-
-      const interval = setInterval(fetchTransactions, 15000);
+      interval = setInterval(fetchTransactions, 15000);
       setPollingInterval(interval);
-
-      return () => {
-        if (pollingInterval) clearInterval(pollingInterval);
-      };
     }
-  }, [publicKey, connection]);
+    
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+    };
+  }, [publicKey]);
 
   const groupTransactionsByDate = (txs: any[]) => {
     const groups: { [key: string]: any[] } = {};

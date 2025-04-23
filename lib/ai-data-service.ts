@@ -3,6 +3,7 @@ import { dexScreenerApi } from './api-integration/dexscreener-api';
 import { messariApi } from './api-integration/messari-api';
 import { fearGreedApi } from './api-integration/fear-greed-api';
 import { solscanApi } from './api-integration/solscan-api';
+import { marketSentimentService } from './services/market-sentiment-service';
 
 // Types for market data structure
 export interface MarketData {
@@ -37,14 +38,14 @@ export const aiDataService = {
       // Try to get data from CoinGecko first
       for (const symbol of symbols) {
         try {
-          const geckoData = await coinGeckoApi.getTokenData(symbol.toLowerCase());
+          const geckoData = await coinGeckoApi.getCoinDetails(symbol.toLowerCase());
           if (geckoData) {
             marketData.push({
               token: symbol,
-              price: geckoData.current_price || 0,
-              change24h: geckoData.price_change_percentage_24h || 0,
-              marketCap: geckoData.market_cap,
-              volume24h: geckoData.total_volume,
+              price: geckoData.market_data.current_price.usd || 0,
+              change24h: geckoData.market_data.price_change_percentage_24h || 0,
+              marketCap: geckoData.market_data.market_cap.usd,
+              volume24h: geckoData.market_data.total_volume.usd,
             });
             continue;
           }
@@ -54,17 +55,39 @@ export const aiDataService = {
         
         // Fallback to DexScreener for newer or less common tokens
         try {
-          const dexData = await dexScreenerApi.getPairData(`${symbol}/USDC`);
-          if (dexData && dexData.priceUsd) {
+          const dexData = await dexScreenerApi.getPairInfo(`${symbol}/USDC`);
+          if (dexData && dexData.pairs && dexData.pairs.length > 0) {
+            const pair = dexData.pairs[0];
             marketData.push({
               token: symbol,
-              price: parseFloat(dexData.priceUsd),
-              change24h: dexData.priceChange.h24 || 0,
-              volume24h: dexData.volume.h24,
+              price: parseFloat(pair.priceUsd),
+              change24h: pair.priceChange.h24 || 0,
+              volume24h: pair.volume.h24,
             });
           }
         } catch (error) {
           console.log(`Failed to fetch data for ${symbol} from all sources`);
+        }
+      }
+      
+      // Add market sentiment analysis
+      const fearGreedIndex = await marketSentimentService.getFearGreedIndex();
+      if (fearGreedIndex) {
+        const indexValue = parseInt(fearGreedIndex.value);
+        if (indexValue >= 70) {
+          marketData.push({
+            token: 'SENTIMENT',
+            price: indexValue,
+            change24h: 0,
+            volume24h: 0,
+          });
+        } else if (indexValue <= 30) {
+          marketData.push({
+            token: 'SENTIMENT',
+            price: indexValue,
+            change24h: 0,
+            volume24h: 0,
+          });
         }
       }
       
@@ -82,13 +105,14 @@ export const aiDataService = {
       
       let marketTrend: 'bullish' | 'bearish' | 'neutral' = 'neutral';
       if (fearGreed && fearGreed.value) {
-        if (fearGreed.value >= 70) marketTrend = 'bullish';
-        else if (fearGreed.value <= 30) marketTrend = 'bearish';
+        const indexValue = parseInt(fearGreed.value);
+        if (indexValue >= 70) marketTrend = 'bullish';
+        else if (indexValue <= 30) marketTrend = 'bearish';
       }
       
       return {
-        fearGreedIndex: fearGreed?.value,
-        fearGreedLabel: fearGreed?.valueText,
+        fearGreedIndex: fearGreed?.value ? parseInt(fearGreed.value) : undefined,
+        fearGreedLabel: fearGreed?.value_classification,
         marketTrend
       };
     } catch (error) {
