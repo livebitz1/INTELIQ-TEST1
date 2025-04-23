@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: ai-wallet
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_SOLANA_RPC_URL
+        sync: false
+      - key: NEXT_PUBLIC_TWITTER_API_KEY
+        sync: false
+    healthCheckPath: /
+    autoDeploy: true 

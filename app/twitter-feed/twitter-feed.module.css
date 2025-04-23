@@ -1,0 +1,229 @@
+/* Overall page layout */
+.pageContainer {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.container {
+  margin-top: 20px;
+}
+
+/* Header styles */
+.header {
+  border-bottom: 1px solid #e1e8ed;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+}
+
+.headerContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.titleContainer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.twitterIcon {
+  color: #1DA1F2;
+}
+
+/* Refresh button */
+.refreshButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #1DA1F2;
+  color: white;
+  border: none;
+  border-radius: 24px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.refreshButton:hover {
+  background-color: #0c85d0;
+}
+
+.refreshButton.disabled {
+  background-color: #a0d2f2;
+  cursor: not-allowed;
+}
+
+.refreshIcon {
+  width: 16px;
+  height: 16px;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Loading state */
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  color: #657786;
+}
+
+.loadingSpinner {
+  border: 3px solid rgba(29, 161, 242, 0.2);
+  border-top: 3px solid #1DA1F2;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 10px;
+}
+
+/* Error states */
+.errorBanner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: #ffeaea;
+  color: #e0245e;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.retryButton {
+  background-color: #e0245e;
+  color: white;
+  border: none;
+  border-radius: 16px;
+  padding: 4px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-left: auto;
+}
+
+.retryButton:hover {
+  background-color: #c9183f;
+}
+
+/* Tweet feed */
+.twitterFeed {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tweet {
+  padding: 16px;
+  border: 1px solid #e1e8ed;
+  border-radius: 12px;
+  background-color: white;
+  transition: background-color 0.2s;
+}
+
+.tweet:hover {
+  background-color: #f5f8fa;
+}
+
+.tweetHeader {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.profileImage {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-right: 12px;
+}
+
+.userInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.name {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.username {
+  color: #657786;
+  font-size: 14px;
+}
+
+.tweetContent {
+  font-size: 16px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+  word-break: break-word;
+}
+
+.tweetMetrics {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #657786;
+  font-size: 14px;
+  border-top: 1px solid #f5f8fa;
+  padding-top: 12px;
+}
+
+.date {
+  font-size: 13px;
+}
+
+.metrics {
+  display: flex;
+  gap: 16px;
+}
+
+.metric {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.icon {
+  color: #657786;
+}
+
+.noTweets {
+  padding: 30px;
+  text-align: center;
+  color: #657786;
+  border: 1px solid #e1e8ed;
+  border-radius: 12px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .pageContainer {
+    padding: 10px;
+  }
+  
+  .headerContent {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .tweetMetrics {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+}

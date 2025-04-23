@@ -1,0 +1,145 @@
+/* Add these new animations and styles to your existing globals.css */
+
+/* Advanced animations for wallet interactions */
+@keyframes subtle-glow {
+  0%, 100% { filter: drop-shadow(0 0 5px rgba(var(--primary-rgb), 0.3)); }
+  50% { filter: drop-shadow(0 0 10px rgba(var(--primary-rgb), 0.6)); }
+}
+
+@keyframes float-subtle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes appear-from-bottom {
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Transaction status animations */
+.transaction-success {
+  animation: success-pulse 1.5s ease-in-out;
+}
+
+@keyframes success-pulse {
+  0% { background-color: rgba(72, 199, 142, 0.1); }
+  50% { background-color: rgba(72, 199, 142, 0.3); }
+  100% { background-color: rgba(72, 199, 142, 0.1); }
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+  .orb {
+    display: none; /* Hide decorative orbs on mobile for performance */
+  }
+  
+  .testimonial-card {
+    width: 100% !important;
+    margin-bottom: 1rem;
+  }
+  
+  .security-card {
+    transform: none !important; /* Disable 3D effects on mobile */
+  }
+}
+
+/* Better responsive grid layout */
+@media (max-width: 1023px) {
+  .hero-content {
+    text-align: center;
+  }
+  
+  .token-portfolio-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Enhanced glassmorphism */
+.glassmorphism {
+  background: rgba(var(--background-rgb), 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(var(--primary-rgb), 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.glassmorphism-hover:hover {
+  background: rgba(var(--background-rgb), 0.8);
+  border: 1px solid rgba(var(--primary-rgb), 0.2);
+  box-shadow: 0 8px 32px rgba(var(--primary-rgb), 0.1);
+  transform: translateY(-2px);
+}
+
+/* Animated sparklines for token prices */
+.sparkline {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.sparkline::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(var(--primary-rgb), 0.5), transparent);
+  animation: sparkline-pulse 3s infinite;
+}
+
+@keyframes sparkline-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.8; }
+}
+
+/* Voice input animations */
+@keyframes voice-wave {
+  0%, 100% { transform: scaleY(0.2); }
+  50% { transform: scaleY(1); }
+}
+
+.voice-wave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 20px;
+}
+
+.voice-wave span {
+  display: inline-block;
+  width: 2px;
+  background-color: var(--primary);
+  border-radius: 1px;
+  animation: voice-wave 1.2s ease-in-out infinite;
+}
+
+.voice-wave span:nth-child(2) { animation-delay: 0.2s; }
+.voice-wave span:nth-child(3) { animation-delay: 0.4s; }
+.voice-wave span:nth-child(4) { animation-delay: 0.6s; }
+
+/* Optimize for mobile viewport */
+@media (max-width: 640px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  h1.text-xl {
+    font-size: 1.25rem;
+  }
+  
+  .text-3xl {
+    font-size: 1.75rem;
+  }
+}
+
+/* Animations for token card interactions */
+.token-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.token-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px -5px rgba(var(--primary-rgb), 0.15);
+}
