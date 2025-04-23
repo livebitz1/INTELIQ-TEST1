@@ -25,7 +25,8 @@ import { generateMarketIntelligence } from "@/lib/modules/crypto-market-intellig
 import { getCoinInfo } from "@/lib/modules/crypto-knowledge-base"
 import { fetchTokenData } from "@/lib/services/token-data-service"
 import { CustomScrollbar } from "@/components/custom-scrollbar"
-import { atomDark } from 'react-syntax-highlighter/dist/cjs/styles/prism'
+import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import type { WalletContextState } from "@solana/wallet-adapter-react"
 
 // SuggestionChip component for interactive suggestion buttons
 const SuggestionChip = ({ suggestion, onSelect }: { suggestion: string; onSelect: (s: string) => void }) => (
@@ -89,7 +90,7 @@ const ChatMessage = ({ message, isLast }: { message: AIMessage; isLast: boolean 
                       </button>
                     </div>
                     <SyntaxHighlighter
-                      style={atomDark}
+                      style={atomDark as any}
                       language={match[1]}
                       PreTag="div"
                       className="!bg-black/80 !mt-0 text-xs md:text-sm"
@@ -126,9 +127,17 @@ const ChatMessage = ({ message, isLast }: { message: AIMessage; isLast: boolean 
   )
 }
 
+interface TransactionConfirmationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => Promise<void>;
+  intent: any;
+  isLoading: boolean;
+}
+
 // Main ChatInterface component
 export function ChatInterface() {
-  const { publicKey, signTransaction, connected } = useWallet()
+  const { publicKey, signTransaction, connected, wallet } = useWallet()
   const { connection } = useConnection()
   const { walletData, setWalletAddress } = useWalletStore()
   const [messages, setMessages] = useState<AIMessage[]>([
@@ -415,14 +424,15 @@ export function ChatInterface() {
           select: () => {},
           connect: () => Promise.resolve(),
           disconnect: () => Promise.resolve(),
-          sendTransaction: async () => ({ signature: '' }),
+          sendTransaction: async () => '',
           signAllTransactions: async () => [],
           signMessage: async () => new Uint8Array(),
           signIn: async () => ({
             account: { publicKey: publicKey },
             signedMessage: new Uint8Array(),
+            signature: ''
           })
-        },
+        } as WalletContextState,
         recipient,
         amount,
         "SOL"
@@ -637,8 +647,7 @@ export function ChatInterface() {
         walletConnected: connected,
         walletAddress: publicKey?.toString() || null,
         balance: walletData.solBalance || 0,
-        marketData: marketData, // Pass market data to the AI
-        lastMarketUpdate: lastMarketUpdate ? lastMarketUpdate.toISOString() : null,
+        tokenBalances: walletData.tokens || [],
       })
 
       // Handle AI response
@@ -764,7 +773,27 @@ export function ChatInterface() {
 
     try {
       const result = await TokenTransferService.transferTokens(
-        { publicKey, signTransaction, connected },
+        {
+          publicKey,
+          signTransaction,
+          connected,
+          connecting: false,
+          disconnecting: false,
+          autoConnect: true,
+          wallets: [],
+          wallet: null,
+          select: () => {},
+          connect: () => Promise.resolve(),
+          disconnect: () => Promise.resolve(),
+          sendTransaction: async () => '',
+          signAllTransactions: async () => [],
+          signMessage: async () => new Uint8Array(),
+          signIn: async () => ({
+            account: { publicKey: publicKey },
+            signedMessage: new Uint8Array(),
+            signature: ''
+          })
+        } as WalletContextState,
         intent.recipient,
         intent.amount,
         intent.token,
