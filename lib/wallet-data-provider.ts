@@ -46,36 +46,60 @@ export class WalletDataProvider {
     
     console.log(`Fetching wallet data for: ${walletAddress}`);
     
-    try {
-      // Get SOL balance
-      const solBalance = await this.getSolBalance(walletAddress);
-      
-      // Get tokens with USD values
-      const tokens = await this.getTokens(walletAddress);
-      
-      // Calculate total portfolio value
-      let totalValueUsd = 0;
-      for (const token of tokens) {
-        if (token.usdValue) {
-          totalValueUsd += token.usdValue;
+    const MAX_RETRIES = 3;
+    let retryCount = 0;
+    
+    while (retryCount < MAX_RETRIES) {
+      try {
+        // Get SOL balance
+        const solBalance = await this.getSolBalance(walletAddress);
+        
+        // Get tokens with USD values
+        const tokens = await this.getTokens(walletAddress);
+        
+        // Calculate total portfolio value
+        let totalValueUsd = 0;
+        for (const token of tokens) {
+          if (token.usdValue) {
+            totalValueUsd += token.usdValue;
+          }
         }
+        
+        const result = {
+          solBalance,
+          tokens,
+          totalValueUsd
+        };
+        
+        // Cache the result
+        tokenCache.set(cacheKey, {
+          data: result,
+          timestamp: Date.now()
+        });
+        
+        console.log(`Wallet data fetched successfully: ${solBalance.toFixed(4)} SOL, ${tokens.length} tokens, ~$${totalValueUsd.toFixed(2)}`);
+        
+        return result;
+      } catch (error) {
+        retryCount++;
+        console.error(`Failed to get wallet data (attempt ${retryCount}/${MAX_RETRIES}):`, error);
+        
+        if (retryCount === MAX_RETRIES) {
+          console.error("Max retries reached, returning fallback data");
+          return {
+            solBalance: 0,
+            tokens: [{ symbol: "SOL", name: "Solana", balance: 0, usdValue: 0, mint: "So11111111111111111111111111111111111111112", decimals: 9 }],
+            totalValueUsd: 0
+          };
+        }
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
       }
-      
-      console.log(`Wallet data fetched successfully: ${solBalance.toFixed(4)} SOL, ${tokens.length} tokens, ~$${totalValueUsd.toFixed(2)}`);
-      
-      return {
-        solBalance,
-        tokens,
-        totalValueUsd
-      };
-    } catch (error) {
-      console.error("Failed to get wallet data:", error);
-      return {
-        solBalance: 0,
-        tokens: [{ symbol: "SOL", name: "Solana", balance: 0, usdValue: 0, mint: "So11111111111111111111111111111111111111112", decimals: 9 }],
-        totalValueUsd: 0
-      };
     }
+    
+    // This should never be reached due to the return in the catch block
+    return { solBalance: 0, tokens: [], totalValueUsd: 0 };
   }
   
   /**

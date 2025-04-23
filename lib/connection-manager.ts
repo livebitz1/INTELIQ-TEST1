@@ -17,12 +17,15 @@ class ConnectionManager {
   private currentIndex = 0;
   private endpointFailures = new Map<string, number>();
   private lastRequestTime = 0;
+  private readonly MAX_FAILURES = 3;
+  private readonly FAILURE_RESET_TIME = 60000; // 1 minute
   
   constructor() {
     // Initialize connections with different endpoints
     const config: ConnectionConfig = {
       commitment: 'confirmed',
       disableRetryOnRateLimit: false,
+      wsEndpoint: undefined // Disable WebSocket to reduce connection overhead
     };
     
     RPC_ENDPOINTS.forEach(endpoint => {
@@ -35,43 +38,40 @@ class ConnectionManager {
     console.log(`Initialized ${this.connections.length} RPC connections`);
   }
   
-  // Get next available connection with smart selection
-  private getNextConnection(): Connection {
-    // Rate limiting to avoid overwhelming RPCs
+  getConnection(): Connection {
+    // Reset failure counts periodically
     const now = Date.now();
-    const timeSinceLastRequest = now - this.lastRequestTime;
-    if (timeSinceLastRequest < 50) {
-      // Add a small delay if we've made a request very recently
-      const delay = 50 - timeSinceLastRequest;
-      console.log(`Rate limiting: Adding ${delay}ms delay between RPC requests`);
+    if (now - this.lastRequestTime > this.FAILURE_RESET_TIME) {
+      this.endpointFailures.clear();
     }
     this.lastRequestTime = now;
     
-    // Find the connection with the fewest failures
-    let minFailures = Infinity;
-    let bestIndex = 0;
-    
+    // Find the first connection with acceptable failure count
     for (let i = 0; i < this.connections.length; i++) {
-      const endpoint = (this.connections[i] as any)._rpcEndpoint;
+      const index = (this.currentIndex + i) % this.connections.length;
+      const endpoint = RPC_ENDPOINTS[index];
       const failures = this.endpointFailures.get(endpoint) || 0;
-      if (failures < minFailures) {
-        minFailures = failures;
-        bestIndex = i;
+      
+      if (failures < this.MAX_FAILURES) {
+        this.currentIndex = (index + 1) % this.connections.length;
+        return this.connections[index];
       }
     }
     
-    // If all endpoints have too many failures, reset counts
-    if (minFailures > 5) {
-      console.log("All endpoints have failures, resetting counts");
-      for (let i = 0; i < this.connections.length; i++) {
-        const endpoint = (this.connections[i] as any)._rpcEndpoint;
-        this.endpointFailures.set(endpoint, 0);
-      }
-    }
-    
-    // Update current index and return connection
-    this.currentIndex = (bestIndex + 1) % this.connections.length;
-    return this.connections[bestIndex];
+    // If all connections have failed too many times, reset and use the first one
+    this.endpointFailures.clear();
+    this.currentIndex = 1;
+    return this.connections[0];
+  }
+  
+  markFailure(endpoint: string) {
+    const failures = (this.endpointFailures.get(endpoint) || 0) + 1;
+    this.endpointFailures.set(endpoint, failures);
+    console.warn(`RPC endpoint ${endpoint} marked as failed (${failures}/${this.MAX_FAILURES} failures)`);
+  }
+  
+  markSuccess(endpoint: string) {
+    this.endpointFailures.set(endpoint, 0);
   }
   
   // Make request with retry and fallback logic
@@ -93,7 +93,7 @@ class ConnectionManager {
     
     // Try different connections until success or exhausted
     while (attempts < maxAttempts * this.connections.length) {
-      const connection = this.getNextConnection();
+      const connection = this.getConnection();
       const endpoint = (connection as any)._rpcEndpoint;
       
       try {
@@ -171,14 +171,9 @@ class ConnectionManager {
     }
   }
   
-  // Get a connection for direct use
-  getConnection(): Connection {
-    return this.getNextConnection();
-  }
-  
   // Get latest blockhash
   async getLatestBlockhash(): Promise<{ blockhash: string }> {
-    const connection = this.getNextConnection();
+    const connection = this.getConnection();
     const { blockhash } = await connection.getLatestBlockhash();
     return { blockhash };
   }

@@ -2,12 +2,15 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useWallet } from "@solana/wallet-adapter-react"
+import { LAMPORTS_PER_SOL } from "@solana/web3.js"
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
 import { useWalletStore } from "@/lib/wallet-store"
 import { motion } from "framer-motion"
 import { Copy, Check, ExternalLink, ChevronDown, Activity, LogOut, Loader2, WalletIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useEffect as useEffectPhantom } from "react"
+import { WalletDataProvider } from "@/lib/wallet-data-provider"
+import { connectionManager } from "@/lib/connection-manager"
 
 function usePhantomWallet() {
   const [hasPhantom, setHasPhantom] = useState(false)
@@ -75,21 +78,19 @@ export function WalletButton() {
     if (connected && publicKey) {
       const fetchWalletData = async () => {
         try {
-          const { Connection } = await import("@solana/web3.js")
-          const connection = new Connection(
-            process.env.NEXT_PUBLIC_RPC_URL || "https://api.mainnet-beta.solana.com",
-            "confirmed"
-          )
+          const connection = connectionManager.getConnection()
+          const balance = await connection.getBalance(publicKey, 'confirmed')
+          const solBalance = balance / LAMPORTS_PER_SOL
 
-          const balance = await connection.getBalance(publicKey)
-          const solBalance = balance / 1e9
-
+          // Get token balances using WalletDataProvider
+          const walletData = await WalletDataProvider.getWalletData(publicKey.toString())
+          
           useWalletStore.setState({
             walletData: {
               ...useWalletStore.getState().walletData,
               solBalance,
-              totalValueUsd: solBalance * 20,
-              tokens: [],
+              tokens: walletData.tokens,
+              totalValueUsd: walletData.totalValueUsd,
               isLoading: false,
               lastUpdated: Date.now(),
             },
@@ -98,6 +99,7 @@ export function WalletButton() {
           console.log("Updated wallet data with SOL balance:", solBalance)
         } catch (error) {
           console.error("Error fetching wallet data:", error)
+          // Don't clear the existing data, just update loading state
           useWalletStore.setState((state) => ({
             walletData: {
               ...state.walletData,
@@ -114,7 +116,10 @@ export function WalletButton() {
         },
       }))
 
+      // Initial fetch
       fetchWalletData()
+      
+      // Set up polling interval
       intervalId = setInterval(fetchWalletData, isOpen ? 10000 : 30000)
     }
 
