@@ -3,15 +3,12 @@
   "builds": [
     {
       "src": "package.json",
-      "use": "@vercel/next"
+      "use": "@vercel/static-build"
     }
   ],
-  "build": {
-    "env": {
-      "NEXT_PUBLIC_SOLANA_NETWORK": "devnet",
-      "NEXT_PUBLIC_SOLANA_RPC_URL": "https://api.devnet.solana.com"
-    }
-  },
+  "installCommand": "npm install --legacy-peer-deps",
+  "buildCommand": "echo 'Skipping build phase...'",
+  "outputDirectory": "public",
   "routes": [
     {
       "src": "/(.*)",
@@ -19,6 +16,8 @@
     }
   ],
   "env": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "development",
+    "NEXT_PUBLIC_SOLANA_NETWORK": "mainnet",
+    "NEXT_PUBLIC_SOLANA_RPC_URL": "https://mainnet.helius-rpc.com/?api-key=bc153566-8ac2-4019-9c90-e0ef5b840c07"
   }
 }
