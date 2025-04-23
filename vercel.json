@@ -3,40 +3,22 @@
   "builds": [
     {
       "src": "package.json",
-      "use": "@vercel/next",
-      "config": {
-        "installCommand": "npm install --legacy-peer-deps",
-        "buildCommand": "npm run build",
-        "outputDirectory": ".next"
-      }
+      "use": "@vercel/next"
     }
   ],
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_SOLANA_NETWORK": "devnet",
+      "NEXT_PUBLIC_SOLANA_RPC_URL": "https://api.devnet.solana.com"
+    }
+  },
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
     {
       "src": "/(.*)",
       "dest": "/$1"
     }
   ],
   "env": {
-    "NODE_ENV": "production",
-    "NPM_FLAGS": "--legacy-peer-deps",
-    "NEXT_PUBLIC_SOLANA_RPC_URL": "https://mainnet.helius-rpc.com/?api-key=bc153566-8ac2-4019-9c90-e0ef5b840c07",
-    "OPENAI_API_KEY": "xai-vJ1ebEeIF6H98foKnM0VzcfSBAJR5RVk1TZagz0wilH1TXFW9eBeKgz0Xb0dVmvjsYVQDE1CwITIFWGN",
-    "TWITTER_BEARER_TOKEN": "AAAAAAAAAAAAAAAAAAAAAKoN0wEAAAAAKqASpmYjdGRcaEHcv4UxDoBjesQ%3DxlNwQEDQUjHMmdrDOMbKvHQWDCG1iv6BlVk2Jk0kAZ2AGAKDS9",
-    "TWITTER_API_KEY": "jeWrn1TG3sVG3oHCaK2D2YKvN",
-    "TWITTER_API_SECRET": "DdIjT861xFJ8PXsSALlmDpYcWCVSeuipQdeDfAWNsOhrydlU4r",
-    "TWITTER_ACCESS_TOKEN": "1913225357341147136-uHWXJDnXjPyLQVAF2LcSHtTDABeDvo",
-    "TWITTER_ACCESS_TOKEN_SECRET": "CcCXaTC3wSlajhojP8Z7enUkWh1ejRwG11jYKb6Ggi8SI",
-    "COINMARKETCAP_API_KEY": "91a331c0-9db0-46fb-a7ee-9fc928737cd2"
-  },
-  "regions": ["sfo1"],
-  "framework": "nextjs",
-  "ignoreCommand": "echo 'Ignoring dependency warnings'",
-  "buildCommand": "npm run build",
-  "installCommand": "npm install --legacy-peer-deps",
-  "outputDirectory": ".next"
+    "NODE_ENV": "production"
+  }
 }
