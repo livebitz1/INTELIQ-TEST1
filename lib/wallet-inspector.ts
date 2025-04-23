@@ -118,9 +118,9 @@ export class WalletInspector {
   }> {
     const errors: string[] = [];
     let walletValid = false;
-    let solBalance = null;
-    let tokenCount = null;
-    let transactionCount = null;
+    let solBalance: number | null = null;
+    let tokenCount: number | null = null;
+    let transactionCount: number | null = null;
     
     // Check RPC connection
     const rpcStatus = await this.checkRpcConnection();

@@ -106,7 +106,7 @@ const CONVERSATION_ADAPTABILITY = {
 };
 
 // Keeps track of response patterns to avoid repetition
-const usedPatterns = new Map<string, number>();
+const usedPatterns = new Map<string, Set<number>>();
 
 /**
  * Add human-like thinking pause at beginning of response
@@ -205,7 +205,7 @@ function adjustTone(text: string, emotion: keyof typeof EMOTIONAL_TONES): string
   const tone = EMOTIONAL_TONES[emotion];
   
   // Apply intensifiers
-  if (tone.intensifiers && Math.random() > 0.7) {
+  if ('intensifiers' in tone && tone.intensifiers && Math.random() > 0.7) {
     const intensifier = tone.intensifiers[Math.floor(Math.random() * tone.intensifiers.length)];
     // Find spots to insert intensifier
     const positiveWords = ["good", "great", "interesting", "important", "useful"];

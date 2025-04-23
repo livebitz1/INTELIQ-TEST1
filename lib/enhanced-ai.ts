@@ -857,7 +857,7 @@ ${context.walletConnected ?
               response += `Market sentiment: ${token.market_sentiment}.\n`;
             }
           }
-        } else if (source.includes('DeFi Protocols')) {
+        } else if (source && source.includes('DeFi Protocols')) {
           const protocol = responseData;
           response = `${query.toUpperCase()} is a ${protocol.type || 'DeFi protocol'} on Solana that ${protocol.description}.\n\n`;
           
@@ -1030,10 +1030,11 @@ ${context.walletConnected ?
             response += "For a sophisticated crypto portfolio, consider these allocation models:\n\n";
             
             for (const [model, details] of Object.entries(data["Allocation Models"])) {
+              const typedDetails = details as AllocationModel;
               response += `### ${model}\n`;
-              response += `${details.description}\n`;
-              response += `Implementation: ${details.implementation}\n`;
-              response += `Risk Level: ${details.riskLevel}\n\n`;
+              response += `${typedDetails.description}\n`;
+              response += `Implementation: ${typedDetails.implementation}\n`;
+              response += `Risk Level: ${typedDetails.riskLevel}\n\n`;
             }
             
             response += "## Strategic Considerations\n\n";
@@ -1049,11 +1050,12 @@ ${context.walletConnected ?
             response += "## Sophisticated Risk Management\n\n";
             
             for (const [category, details] of Object.entries(data["Position Sizing"])) {
+              const typedDetails = details as PositionSizing;
               response += `### ${category}\n`;
-              response += `${details.description}\n`;
-              response += `Implementation: ${details.implementation}\n`;
-              response += `Advantages: ${details.advantages}\n`;
-              response += `Disadvantages: ${details.disadvantages}\n\n`;
+              response += `${typedDetails.description}\n`;
+              response += `Implementation: ${typedDetails.implementation}\n`;
+              response += `Advantages: ${typedDetails.advantages}\n`;
+              response += `Disadvantages: ${typedDetails.disadvantages}\n\n`;
             }
             
             response += "## Risk-Reward Optimization\n\n";
@@ -1065,10 +1067,11 @@ ${context.walletConnected ?
             response += "## Sophisticated Investment Strategies\n\n";
             
             for (const [strategy, details] of Object.entries(data)) {
+              const typedDetails = details as StrategyDetails;
               response += `### ${strategy}\n`;
-              response += `${details.description}\n\n`;
+              response += `${typedDetails.description}\n\n`;
               response += "Methodology:\n";
-              details.methodology.forEach((method: string) => response += `- ${method}\n`);
+              typedDetails.methodology.forEach((method: string) => response += `- ${method}\n`);
               response += "\n";
             }
           }
@@ -1080,10 +1083,11 @@ ${context.walletConnected ?
             
             const strategies = Object.entries(data["Allocation Models"]);
             for (const [name, details] of strategies.slice(0, 2)) {
+              const typedDetails = details as AllocationModel;
               response += `## ${name}\n`;
-              response += `${details.description}\n`;
-              response += `How to implement: ${details.implementation}\n`;
-              response += `Benefits: ${details.benefits}\n\n`;
+              response += `${typedDetails.description}\n`;
+              response += `How to implement: ${typedDetails.implementation}\n`;
+              response += `Benefits: ${typedDetails.benefits}\n\n`;
             }
             
             response += "## Risk Management Basics\n\n";
@@ -1096,10 +1100,11 @@ ${context.walletConnected ?
             
             const strategies = Object.entries(data);
             for (const [name, details] of strategies.slice(0, 2)) {
+              const typedDetails = details as StrategyDetails;
               response += `## ${name}\n`;
-              response += `${details.description}\n\n`;
+              response += `${typedDetails.description}\n\n`;
               response += "Key points:\n";
-              details.advantages.slice(0, 3).forEach((adv: string) => response += `- ${adv}\n`);
+              typedDetails.advantages?.slice(0, 3).forEach((adv: string) => response += `- ${adv}\n`);
               response += "\n";
             }
           }
@@ -1194,16 +1199,16 @@ function formatKnowledgeToText(data: any, expertiseLevel: string): string {
       } else if (typeof value === 'object') {
         if (expertiseLevel === "advanced") {
           text += `**${key}**:\n`;
-          for (const [subKey, subValue] of Object.entries(value)) {
-            text += `  **${subKey}**: `;
-            if (typeof subValue === 'string') {
-              text += `${subValue}\n`;
-            } else {
-              text += `${JSON.stringify(subValue)}\n`;
+          if (value) {
+            for (const [subKey, subValue] of Object.entries(value)) {
+              text += `  **${subKey}**: `;
+              if (typeof subValue === 'string') {
+                text += `${subValue}\n`;
+              }
             }
           }
         } else {
-          text += `**${key}**: ${Object.keys(value).join(", ")}\n`;
+          text += `**${key}**: ${value ? Object.keys(value).join(", ") : ""}\n`;
         }
         text += "\n";
       }
@@ -1453,14 +1458,14 @@ export async function parseUserIntent(
           const result = await operation.handler(match, context);
           
           const tip = getPersonalizedTips(context);
-          if (tip) {
+          if (tip && result) {
             result.message = `${result.message}\n\n${tip}`;
           }
           
           return {
             ...result,
             suggestions: conversationContext.suggestedNextActions
-          };
+          } as { message: string; intent?: any; suggestions?: string[] };
         }
       }
     }
@@ -1489,4 +1494,40 @@ export async function parseUserIntent(
 // Export conversation context for external use
 export function getConversationContext() {
   return {...conversationContext};
+}
+
+const RISK_FRAMEWORKS = {
+  "Education Frameworks": {
+    "Beginner": {
+      "Common Mistakes to Avoid": [
+        "Investing based on FOMO (Fear Of Missing Out)",
+        "Putting all your money in one cryptocurrency",
+        "Trading frequently without experience",
+        "Ignoring security best practices",
+        "Investing without doing research"
+      ]
+    }
+  }
+};
+
+interface AllocationModel {
+  description: string;
+  implementation: string;
+  riskLevel: string;
+  benefits?: string;
+}
+
+interface PositionSizing {
+  description: string;
+  implementation: string;
+  advantages: string;
+  disadvantages: string;
+}
+
+interface StrategyDetails {
+  description: string;
+  implementation?: string;
+  methodology: string[];
+  advantages?: string[];
+  benefits?: string;
 }

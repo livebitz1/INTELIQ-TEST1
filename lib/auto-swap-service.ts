@@ -186,10 +186,11 @@ export class AutoSwapService {
       // 7. Wait for confirmation with proper error handling
       console.log("Waiting for transaction confirmation...");
       try {
+        const latestBlockhash = await connection.getLatestBlockhash();
         const confirmation = await connection.confirmTransaction({
           signature,
-          lastValidBlockHeight: await connection.getBlockHeight(),
-          blockhash: (txn instanceof Transaction) ? txn.recentBlockhash : await connection.getLatestBlockhash().then(res => res.blockhash)
+          blockhash: latestBlockhash.blockhash,
+          lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
         }, 'confirmed');
         
         if (confirmation?.value?.err) {

@@ -309,6 +309,9 @@ export async function getAIResponse(
           if (functionName === "swapTokens") {
             const { fromToken, toToken, amount, percentage } = functionArgs;
             
+            // Declare calculatedAmount before use
+            let calculatedAmount = amount;
+            
             // Handle "all", "all my", "everything" cases with percentage
             if (percentage && (percentage === '100%' || percentage.toLowerCase().includes('all'))) {
               // Calculate the max amount they can swap
@@ -337,7 +340,6 @@ export async function getAIResponse(
             }
             
             // Check if we need to calculate amount from percentage
-            let calculatedAmount = amount;
             if (percentage) {
               // For "all", "everything", etc.
               if (percentage === "100%" || percentage.toLowerCase() === "all") {

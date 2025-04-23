@@ -132,12 +132,6 @@ export function createOptimalConnection(): Connection {
   return new Connection(endpoint, {
     commitment: 'confirmed',
     confirmTransactionInitialTimeout: 60000,
-    disableRetryOnRateLimit: false,
-    retryStrategy: {
-      maxRetries: 5,
-      retryInterval: 500,
-      retryIntervalMultiplier: 2,  // Exponential backoff
-      retryableStatusCodes: [429, 500, 502, 503, 504]
-    }
+    disableRetryOnRateLimit: false
   });
 }

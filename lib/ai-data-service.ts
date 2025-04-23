@@ -3,7 +3,6 @@ import { dexScreenerApi } from './api-integration/dexscreener-api';
 import { messariApi } from './api-integration/messari-api';
 import { fearGreedApi } from './api-integration/fear-greed-api';
 import { solscanApi } from './api-integration/solscan-api';
-import { marketSentimentService } from './services/market-sentiment-service';
 
 // Types for market data structure
 export interface MarketData {
@@ -71,7 +70,7 @@ export const aiDataService = {
       }
       
       // Add market sentiment analysis
-      const fearGreedIndex = await marketSentimentService.getFearGreedIndex();
+      const fearGreedIndex = await fearGreedApi.getCurrentIndex();
       if (fearGreedIndex) {
         const indexValue = parseInt(fearGreedIndex.value);
         if (indexValue >= 70) {

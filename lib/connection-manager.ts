@@ -176,6 +176,13 @@ class ConnectionManager {
     return this.getNextConnection();
   }
   
+  // Get latest blockhash
+  async getLatestBlockhash(): Promise<{ blockhash: string }> {
+    const connection = this.getNextConnection();
+    const { blockhash } = await connection.getLatestBlockhash();
+    return { blockhash };
+  }
+  
   // Clear cache
   clearCache(cacheKey?: string): void {
     if (cacheKey) {

@@ -254,7 +254,7 @@ export class MarketIntelligenceService {
       
       // Get token-specific trend if symbol is provided
       let trendNarrative = '';
-      let priceTrend = null;
+      let priceTrend: PriceTrend | null = null;
       
       if (symbol) {
         priceTrend = await this.analyzePriceTrend(symbol);

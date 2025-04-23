@@ -1,12 +1,9 @@
-import { Configuration, OpenAIApi } from "openai";
+import OpenAI from "openai";
 
 // Create OpenAI configuration
-const configuration = new Configuration({
+const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
-// Initialize OpenAI API client
-const openai = new OpenAIApi(configuration);
 
 // Function to get a dynamic system prompt that includes wallet data
 function getSystemPrompt(context: {
@@ -82,7 +79,7 @@ export async function parseUserIntent(
   try {
     const systemPrompt = getSystemPrompt(context);
     
-    const response = await openai.createChatCompletion({
+    const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
         { role: "system", content: systemPrompt },
@@ -95,7 +92,7 @@ export async function parseUserIntent(
       presence_penalty: 0,
     });
 
-    const content = response.data.choices[0]?.message?.content || "";
+    const content = response.choices[0]?.message?.content || "";
     
     // Parse the response from JSON
     try {

@@ -114,7 +114,7 @@ export class WalletDataProvider {
     try {
       // Get SOL balance
       const solBalance = await this.getSolBalance(walletAddress);
-      let solUsdValue = null;
+      let solUsdValue: number | null = null;
       
       try {
         const solPrice = await getTokenPrice("SOL");
@@ -214,7 +214,7 @@ export class WalletDataProvider {
               let decimals = tokenInfo ? tokenInfo.decimals : info.tokenAmount.decimals;
               
               // Get USD value
-              let usdValue = null;
+              let usdValue: number | null = null;
               if (symbol !== "Unknown") {
                 try {
                   const price = await getTokenPrice(symbol);

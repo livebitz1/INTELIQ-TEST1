@@ -1,7 +1,6 @@
 import { WalletDataProvider } from './wallet-data-provider';
 import { connectionManager } from './connection-manager';
 import { PublicKey } from '@solana/web3.js';
-import { TOKEN_METADATA } from './token-data';
 
 const LAMPORTS_PER_SOL = 1_000_000_000;
 
@@ -105,8 +104,8 @@ export class TransactionHistoryService {
       let filteredTransactions = transactions.filter(tx => tx !== null) as TransactionDetails[];
       
       // Apply additional filters from the query
-      if (query.type) {
-        filteredTransactions = filteredTransactions.filter(tx => tx.type.toLowerCase() === query.type.toLowerCase());
+      if (query.type && typeof query.type === 'string') {
+        filteredTransactions = filteredTransactions.filter(tx => tx.type.toLowerCase() === query.type!.toLowerCase());
       }
       
       if (query.token) {

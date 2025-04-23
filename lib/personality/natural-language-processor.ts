@@ -216,7 +216,7 @@ export function createNaturalResponse(content: string, context: {
       if (context.makeHuman) {
         const humanizedFollowUp = makeMoreHuman(followUp, {
           conversationStyle: 'casual',
-          emotionalTone: 'curious'
+          emotionalTone: 'reflective'
         });
         response += " " + humanizedFollowUp;
       } else {

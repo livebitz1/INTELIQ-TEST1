@@ -64,7 +64,7 @@ const fetchCoinGeckoData = async (address: string, chain: string = 'ethereum') =
 
 // Generate market commentary based on token performance metrics
 const generateMarketCommentary = (priceChange: number, volume: number, liquidity: number): string => {
-  let comments = [];
+  let comments: string[] = [];
   
   // Price analysis section
   comments.push("**Price Analysis:**");

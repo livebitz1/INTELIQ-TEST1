@@ -1,10 +1,10 @@
-import { Suspense } from 'react';
-import type { ComponentType } from 'react';
+import React, { Suspense, lazy } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 
 interface DynamicImportOptions {
   loading?: ComponentType;
   ssr?: boolean;
-  fallback?: React.ReactNode;
+  fallback?: ReactNode;
 }
 
 export function dynamicImport<T extends ComponentType<any>>(
@@ -14,7 +14,7 @@ export function dynamicImport<T extends ComponentType<any>>(
   const { loading: LoadingComponent, ssr = true, fallback = null } = options;
 
   const DynamicComponent = (props: any) => {
-    const Component = React.lazy(importFn);
+    const Component = lazy(importFn);
 
     if (!ssr && typeof window === 'undefined') {
       return fallback;
@@ -33,13 +33,4 @@ export function dynamicImport<T extends ComponentType<any>>(
   })`;
 
   return DynamicComponent;
-}
-
-// Example usage:
-// const DynamicChart = dynamicImport(
-//   () => import('@/components/Chart'),
-//   {
-//     loading: () => <div>Loading chart...</div>,
-//     ssr: false
-//   }
-// ); 
+} 

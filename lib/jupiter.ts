@@ -164,12 +164,7 @@ export async function prepareSwapTransaction(
     if (isVersionedTransaction) {
       // Use VersionedTransaction for deserializing v0 transactions
       const versionedTx = VersionedTransaction.deserialize(serializedTransaction);
-      
-      // Convert to legacy transaction for compatibility
-      transaction = Transaction.populate(
-        versionedTx.message,
-        versionedTx.signatures
-      );
+      transaction = Transaction.from(serializedTransaction);
     } else {
       transaction = Transaction.from(serializedTransaction);
     }

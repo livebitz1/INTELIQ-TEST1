@@ -53,7 +53,7 @@ export async function fetchPriceHistory(symbol: string, days = 7): Promise<{time
     // Create simulated price history
     const now = Date.now();
     const oneDayMs = 24 * 60 * 60 * 1000;
-    const history = [];
+    const history: { timestamp: number; price: number }[] = [];
     
     for (let i = days; i >= 0; i--) {
       const timestamp = now - (i * oneDayMs);

@@ -1,5 +1,10 @@
 import { Connection, Transaction, PublicKey, SendOptions, Commitment, TransactionSignature } from '@solana/web3.js';
 
+// Extend SendOptions to include commitment
+interface ExtendedSendOptions extends SendOptions {
+  commitment?: Commitment;
+}
+
 // Silent error handling with logging
 interface ErrorLogOptions {
   logToConsole?: boolean;
@@ -68,7 +73,7 @@ export class TransactionHandler {
   async sendAndConfirmTransaction(
     transaction: Transaction,
     signers?: any[],
-    options?: SendOptions
+    options?: ExtendedSendOptions
   ): Promise<TransactionResult> {
     try {
       // Send transaction

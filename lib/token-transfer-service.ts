@@ -9,7 +9,7 @@ import {
   TransactionInstruction 
 } from '@solana/web3.js';
 import { connectionManager } from './connection-manager';
-import { TOKEN_PROGRAM_ID, createTransferInstruction } from '@solana/spl-token';
+import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { TransactionMemoryManager } from './transaction-memory';
 
 // Response interface for transfer operations
@@ -113,6 +113,9 @@ export class TokenTransferService {
       transaction.feePayer = wallet.publicKey!;
       
       // Sign and send transaction
+      if (!wallet.signTransaction) {
+        throw new Error("Wallet does not support signing transactions");
+      }
       const signedTransaction = await wallet.signTransaction(transaction);
       const signature = await connection.sendRawTransaction(
         signedTransaction.serialize()

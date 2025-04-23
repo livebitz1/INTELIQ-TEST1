@@ -35,7 +35,7 @@ export const cryptoDataService = {
     // If we don't have a mapping, try to search for it
     if (!mapping?.geckoId) {
       try {
-        const searchResult = await coinGeckoApi.searchCoins(symbol);
+        const searchResult = await coinGeckoApi.searchCoins(symbol) as { coins: Array<{ id: string }> };
         if (searchResult.coins && searchResult.coins.length > 0) {
           coinMappings[upperSymbol] = {
             ...coinMappings[upperSymbol] || {},

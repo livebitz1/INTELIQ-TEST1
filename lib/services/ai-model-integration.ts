@@ -259,7 +259,7 @@ export class AIModelIntegrationService {
     
     // Also check for token names
     for (const [symbol, data] of Object.entries(ENHANCED_TOKEN_INFO)) {
-      if (text.toLowerCase().includes(data.name.toLowerCase()) && !tokens.includes(symbol)) {
+      if ('name' in data && text.toLowerCase().includes(data.name.toLowerCase()) && !tokens.includes(symbol)) {
         tokens.push(symbol);
       }
     }

@@ -14,7 +14,7 @@ export async function getWalletHistory(walletAddress: string | null): Promise<Tr
   
   try {
     // Use the enhanced WalletDataProvider
-    const transactions = await WalletDataProvider.getTransactionHistory(walletAddress);
+    const transactions = await WalletDataProvider.getRecentTransactions(walletAddress);
     
     // Convert to TransactionHistoryItem format
     return transactions.map(tx => ({
@@ -39,7 +39,7 @@ export async function getWalletTokens(walletAddress: string | null): Promise<any
   
   try {
     // Use the enhanced WalletDataProvider
-    const tokens = await WalletDataProvider.getWalletTokens(walletAddress);
+    const tokens = await WalletDataProvider.getTokens(walletAddress);
     
     // Add USD values
     for (const token of tokens) {

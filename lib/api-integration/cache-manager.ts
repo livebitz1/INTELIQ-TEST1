@@ -59,11 +59,11 @@ export function clearCache(key?: string): void {
 export function getCacheStats(): { size: number, keys: string[] } {
   // Clean expired entries first
   const now = Date.now();
-  for (const [key, entry] of cache.entries()) {
+  cache.forEach((entry, key) => {
     if (entry.expiry <= now) {
       cache.delete(key);
     }
-  }
+  });
   
   return {
     size: cache.size,

@@ -253,10 +253,10 @@ export function formatWithPersonality(
     
     // Apply human-like behavior
     formattedResponse = makeMoreHuman(formattedResponse, {
-      conversationStyle: responseStyle.conversationStyle,
-      emotionalTone: responseStyle.emotionalTone,
-      addThinking: Math.random() > 0.7, // 30% chance of adding thinking pause
-      addPersonal: Math.random() > 0.5 // 50% chance of adding personal expression
+      conversationStyle: responseStyle.conversationStyle as "formal" | "casual" | "technical" | "enthusiastic",
+      emotionalTone: responseStyle.emotionalTone as "enthusiastic" | "cautious" | "reflective" | "surprised",
+      addThinking: Math.random() > 0.7,
+      addPersonal: Math.random() > 0.5
     });
   }
   
