@@ -7,6 +7,13 @@ const transactionCache = new Map<string, {data: any, timestamp: number}>();
 const tokenCache = new Map<string, {data: any, timestamp: number}>();
 const CACHE_TTL = 30000; // 30 seconds cache lifetime
 
+// Priority tokens to fetch first
+const PRIORITY_TOKENS = [
+  'So11111111111111111111111111111111111111112', // SOL
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
+  'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', // USDT
+];
+
 // Token metadata for common SPL tokens
 const TOKEN_METADATA: Record<string, { symbol: string, name: string, decimals: number }> = {
   'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': { symbol: 'USDC', name: 'USD Coin', decimals: 6 },
@@ -140,7 +147,7 @@ export class WalletDataProvider {
     }
     
     try {
-      // Get SOL balance
+      // Get SOL balance first (highest priority)
       const solBalance = await this.getSolBalance(walletAddress);
       let solUsdValue: number | null = null;
       
@@ -178,7 +185,11 @@ export class WalletDataProvider {
                 jsonrpc: '2.0',
                 id: 'helius-tokens',
                 method: 'getTokenAccounts',
-                params: { wallet: pubkey.toString() }
+                params: { 
+                  wallet: pubkey.toString(),
+                  // Prioritize major tokens
+                  tokenAddresses: PRIORITY_TOKENS
+                }
               })
             });
             
@@ -273,8 +284,8 @@ export class WalletDataProvider {
         console.error("Error getting token accounts:", e);
       }
       
-      // Try to get USD prices for all tokens
-      for (const token of tokens) {
+      // Try to get USD prices for all tokens in parallel
+      await Promise.all(tokens.map(async (token) => {
         if (token.usdValue === null && token.symbol !== "Unknown") {
           try {
             const price = await getTokenPrice(token.symbol);
@@ -285,7 +296,7 @@ export class WalletDataProvider {
             // Skip if price unavailable
           }
         }
-      }
+      }));
       
       // Cache the results
       tokenCache.set(cacheKey, {

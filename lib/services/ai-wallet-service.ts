@@ -7,6 +7,7 @@ import { WalletDataProvider } from '../wallet-data-provider';
 import { MarketDataService } from './market-data-service';
 import { MemeCoinService } from './meme-coin-service';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { TransactionHistoryService, TransactionDetails } from '../transaction-history-service';
 
 interface AIResponse {
   message: string;
@@ -151,10 +152,8 @@ export class AIWalletService {
                     return null;
                   }
 
-                  // Determine transaction type
+                  // Extract transaction details
                   const type = this.determineTransactionType(tx);
-                  
-                  // Extract amount
                   const preBalances = tx.meta?.preBalances || [0];
                   const postBalances = tx.meta?.postBalances || [0];
                   const change = Math.abs(postBalances[0] - preBalances[0]) / LAMPORTS_PER_SOL;
@@ -165,21 +164,26 @@ export class AIWalletService {
                   try {
                     const accounts = tx.transaction.message.accountKeys;
                     if (accounts.length > 1) {
-                      recipient = accounts[1].pubkey.toString().substring(0, 6) + "..." +
-                                 accounts[1].pubkey.toString().substring(accounts[1].pubkey.toString().length - 4);
+                      recipient = accounts[1].pubkey.toString();
                     }
                   } catch (e) {
                     console.error("Error extracting recipient:", e);
                   }
 
-                  return {
+                  // Create TransactionDetails object
+                  const txDetails: TransactionDetails = {
                     signature: sig.signature,
-                    timestamp: sig.blockTime ? new Date(sig.blockTime * 1000) : new Date(),
+                    timestamp: sig.blockTime ? sig.blockTime * 1000 : Date.now(),
+                    date: new Date(sig.blockTime ? sig.blockTime * 1000 : Date.now()).toLocaleString(),
                     type,
+                    fromToken: 'SOL',
                     amount,
-                    status: "confirmed",
-                    recipient
+                    status: 'confirmed',
+                    fee: (tx.meta?.fee || 0 / LAMPORTS_PER_SOL).toFixed(6),
+                    address: recipient
                   };
+
+                  return txDetails;
                 } catch (error) {
                   retryCount++;
                   console.error(`Failed to fetch transaction ${sig.signature} (attempt ${retryCount}/${maxRetries}):`, error);
@@ -195,7 +199,7 @@ export class AIWalletService {
             })
           );
 
-          const validTransactions = transactions.filter(tx => tx !== null);
+          const validTransactions = transactions.filter(tx => tx !== null) as TransactionDetails[];
 
           if (validTransactions.length === 0) {
             return {
@@ -207,28 +211,11 @@ export class AIWalletService {
             };
           }
 
-          // Group transactions by date
-          const groupedTxs = this.groupTransactionsByDate(validTransactions);
+          // Use TransactionHistoryService to format transactions beautifully
+          const formattedHistory = TransactionHistoryService.formatTransactionsForDisplay(validTransactions);
           
-          let message = `${this.getRandomGreeting()} Here are your recent transactions:\n\n`;
-          
-          for (const [date, txs] of groupedTxs) {
-            message += `📅 ${date}\n`;
-            for (const tx of txs) {
-              const emoji = tx.type === 'swap' ? '🔄' : tx.type === 'transfer' ? '📤' : '📝';
-              message += `${emoji} ${tx.type.toUpperCase()}: ${tx.amount} SOL to ${tx.recipient}\n`;
-            }
-            message += '\n';
-          }
-
-          message += `Would you like to:\n` +
-            `• See more details about any transaction\n` +
-            `• Check your current balance\n` +
-            `• View older transactions\n` +
-            `• Send a new transaction`;
-
           return {
-            message,
+            message: formattedHistory,
             intent
           };
         } catch (error) {
@@ -271,6 +258,13 @@ export class AIWalletService {
             intent
           };
         } else {
+          // Check if error is about expired signature
+          if (result.message && result.message.includes("Signature") && result.message.includes("has expired")) {
+            return {
+              message: "",
+              intent
+            };
+          }
           return {
             message: `I'm sorry, but ${result.message} Would you like to try again?`,
             intent

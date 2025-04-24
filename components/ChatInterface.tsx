@@ -430,10 +430,10 @@ export function ChatInterface() {
       setMessages((prev) => [
         ...prev,
         {
-          role: "assistant",
+          role: "assistant" as const,
           content: response.message,
         },
-      ]);
+      ].filter(msg => Boolean(msg.content))); // Filter out empty messages
 
       // If there's an intent, handle it appropriately
       if (response.intent) {
@@ -493,19 +493,19 @@ export function ChatInterface() {
       setMessages((prev) => [
         ...prev,
         {
-          role: "assistant",
-          content: intent.response || "I understand your request and will process it accordingly.",
+          role: "assistant" as const,
+          content: String(intent.response || "I understand your request and will process it accordingly."),
         },
-      ]);
+      ].filter(msg => Boolean(msg.content))); // Filter out empty messages
     } catch (error) {
       console.error("Error in handleAIResponse:", error);
       setMessages((prev) => [
         ...prev,
         {
-          role: "assistant",
+          role: "assistant" as const,
           content: `Error: ${error.message || "An unexpected error occurred"}. Please try again.`,
         },
-      ]);
+      ].filter(msg => Boolean(msg.content))); // Filter out empty messages
     }
   };
 
@@ -523,10 +523,10 @@ export function ChatInterface() {
       setMessages((prev) => [
         ...prev,
         {
-          role: "assistant",
+          role: "assistant" as const,
           content: `Transfer failed: ${error.message || "An unexpected error occurred"}`,
         },
-      ]);
+      ].filter(msg => Boolean(msg.content))); // Filter out empty messages
     } finally {
       setIsExecutingTransfer(false);
       setShowTransactionConfirmation(false);
