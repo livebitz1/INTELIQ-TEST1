@@ -179,9 +179,9 @@ export function QuickCommandBar({ insertCommand }: QuickCommandBarProps) {
       color: "from-indigo-500/30 to-violet-500/30",
     },
     { 
-      name: "Portfolio", 
+      name: "MEME-COIN", 
       icon: <Sparkles className="w-5 h-5" strokeWidth={1.5} />, 
-      command: "How is my portfolio performing?", 
+      command: "analyze this token: [address]", 
       description: "Get detailed portfolio performance stats",
       category: "analytics", 
       color: "from-rose-500/30 to-red-500/30",
