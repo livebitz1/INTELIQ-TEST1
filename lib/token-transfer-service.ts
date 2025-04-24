@@ -97,13 +97,12 @@ export class TokenTransferService {
       }
 
       // Get connection with retry logic
-      let connection: Connection;
+      let connection: Connection = connectionManager.getConnection();
       let retryCount = 0;
       const maxRetries = 3;
 
       while (retryCount < maxRetries) {
         try {
-          connection = connectionManager.getConnection();
           // Test the connection
           await connection.getRecentBlockhash();
           break;
@@ -118,11 +117,13 @@ export class TokenTransferService {
           }
           // Wait before retrying
           await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+          // Get a new connection on retry
+          connection = connectionManager.getConnection();
         }
       }
       
       // Get sender's balance with retry logic
-      let senderBalance: number;
+      let senderBalance: number = 0;
       retryCount = 0;
 
       while (retryCount < maxRetries) {

@@ -62,6 +62,7 @@ export class AIWalletService {
       } else if (intent.action === 'swap') {
         const result = await AutoSwapService.executeSwap(
           {
+            action: 'swap',
             fromToken: intent.fromToken || 'SOL',
             toToken: intent.toToken || 'USDC',
             amount: intent.amount

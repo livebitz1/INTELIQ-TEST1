@@ -16,7 +16,7 @@ export default function AIWalletChat() {
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { wallet } = useWallet();
+  const wallet = useWallet();
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -40,6 +40,14 @@ export default function AIWalletChat() {
 
     try {
       // Process the request
+      if (!wallet.connected) {
+        setMessages(prev => [...prev, {
+          type: 'ai',
+          content: "🔐 Please connect your wallet first to perform transactions.",
+          timestamp: new Date()
+        }]);
+        return;
+      }
       const response = await AIWalletService.processRequest(userMessage, wallet);
 
       // Add AI response
@@ -51,10 +59,10 @@ export default function AIWalletChat() {
 
       // Show notification for successful transactions
       if (response.intent) {
-        notify({
-          type: 'success',
-          message: response.message
-        });
+        notify.success(
+          'Transaction Success',
+          response.message
+        );
       }
     } catch (error) {
       console.error('Error processing request:', error);

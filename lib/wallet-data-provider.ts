@@ -426,8 +426,7 @@ export class WalletDataProvider {
           signatures = await connection.getSignaturesForAddress(
             publicKey,
             { 
-              limit: 20, // Increased limit for better coverage
-              commitment: 'confirmed'
+              limit: 20 // Increased limit for better coverage
             }
           );
           break;

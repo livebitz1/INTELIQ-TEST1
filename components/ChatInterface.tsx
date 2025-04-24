@@ -438,6 +438,9 @@ export function ChatInterface() {
       // If there's an intent, handle it appropriately
       if (response.intent) {
         if (response.intent.action === 'send') {
+          if (!response.intent.amount || !response.intent.recipient) {
+            throw new Error("Invalid transfer parameters");
+          }
           setTransferIntent({
             type: 'TRANSFER',
             token: response.intent.fromToken,
