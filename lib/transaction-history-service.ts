@@ -286,20 +286,37 @@ export class TransactionHistoryService {
       return groups;
     }, {});
 
-    let output = "";
+    let output = "╔══════════════════════════════════════════╗\n";
+    output += "║           ✨ Transaction History ✨         ║\n";
+    output += "╚══════════════════════════════════════════╝\n\n";
     
     // Format each date group
     Object.entries(groupedTxs).forEach(([date, txs]) => {
-      output += `\n📅 **${date}**\n`;
+      // Add decorated date header
+      output += `┌─────────── 📅 ${date} ───────────┐\n\n`;
       
-      txs.forEach((tx, index) => {
-        // Get appropriate emoji based on transaction type
-        const typeEmoji = tx.type === 'swap' ? '🔄' : 
-                         tx.type === 'transfer' ? '💸' : 
-                         '📝';
-        
-        // Get status emoji
-        const statusEmoji = tx.status === 'failed' ? '❌' : '✅';
+      txs.forEach((tx) => {
+        // Get appropriate emoji and decoration based on transaction type
+        let typeDecoration;
+        if (tx.type === 'swap') {
+          typeDecoration = {
+            emoji: '🔄',
+            color: '💙',
+            description: 'Swap'
+          };
+        } else if (tx.type === 'transfer') {
+          typeDecoration = {
+            emoji: '💸',
+            color: '💚',
+            description: 'Transfer'
+          };
+        } else {
+          typeDecoration = {
+            emoji: '📝',
+            color: '🟡',
+            description: 'Transaction'
+          };
+        }
         
         // Format time
         const time = new Date(tx.timestamp).toLocaleTimeString([], { 
@@ -307,41 +324,43 @@ export class TransactionHistoryService {
           minute: '2-digit' 
         });
         
-        // Build transaction description
-        let description = `${typeEmoji} ${tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}`;
+        // Build decorated transaction description
+        output += `   ${typeDecoration.emoji} ${typeDecoration.description}\n`;
+        output += `   ├─ Amount: ${tx.amount} ${tx.fromToken}\n`;
         
         if (tx.type === 'swap') {
-          description += ` ${tx.amount} ${tx.fromToken} → ${tx.toToken}`;
-        } else if (tx.type === 'transfer') {
-          description += ` ${tx.amount} ${tx.fromToken}`;
-          if (tx.address) {
-            description += ` to ${tx.address.slice(0, 4)}...${tx.address.slice(-4)}`;
-          }
-        } else {
-          description += ` ${tx.amount} ${tx.fromToken}`;
+          output += `   ├─ To: ${tx.toToken}\n`;
+        } else if (tx.address) {
+          output += `   ├─ To: ${tx.address.slice(0, 4)}...${tx.address.slice(-4)}\n`;
         }
         
-        // Add status and time
-        description += ` ${statusEmoji} (${time})`;
-        
-        // Add to output with proper indentation
-        output += `  ${index + 1}. ${description}\n`;
+        output += `   ├─ Time: ${time}\n`;
+        output += `   └─ Status: ${tx.status === 'failed' ? '❌ Failed' : '✅ Success'}\n\n`;
       });
       
-      output += "\n";
+      output += `└────────────────────────────────────┘\n\n`;
     });
     
-    // Add a summary at the end
+    // Add a decorated summary section
+    output += "╔══════════════ 📊 Summary ══════════════╗\n";
     const totalTxs = transactions.length;
     const successfulTxs = transactions.filter(tx => tx.status !== 'failed').length;
     const failedTxs = totalTxs - successfulTxs;
     
-    output += `\n📊 **Summary**\n`;
-    output += `  • Total Transactions: ${totalTxs}\n`;
-    output += `  • Successful: ${successfulTxs} ✅\n`;
+    output += `║  • Total Transactions: ${totalTxs.toString().padEnd(14)} ║\n`;
+    output += `║  • Successful: ${successfulTxs} ✅${' '.repeat(18)}║\n`;
     if (failedTxs > 0) {
-      output += `  • Failed: ${failedTxs} ❌\n`;
+      output += `║  • Failed: ${failedTxs} ❌${' '.repeat(20)}║\n`;
     }
+    output += "╚══════════════════════════════════════════╝\n\n";
+    
+    // Add decorated suggestions section
+    output += "┌──────────── 💡 Next Steps ────────────┐\n";
+    output += "│  1. View transaction details           │\n";
+    output += "│  2. Check your current balance         │\n";
+    output += "│  3. View older transactions            │\n";
+    output += "│  4. Send a new transaction             │\n";
+    output += "└────────────────────────────────────────┘\n";
     
     return output;
   }
