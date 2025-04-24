@@ -708,7 +708,7 @@ export default function Home() {
 
       <footer className="border-t border-border/30 bg-background/50 backdrop-blur-sm">
         <div className="container px-4 py-8 mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+          <div className="flex flex-col items-center space-y-4">
             <div className="flex items-center space-x-2">
               <div className="relative w-6 h-6">
                 <motion.div 
@@ -728,17 +728,30 @@ export default function Home() {
             </div>
 
             <div className="flex space-x-6">
-              {["Twitter", "", "", ""].map(
-                (item, i) => (
-                  <a
-                    key={i}
-                    href="https://x.com/inteliq_xyz"
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {item}
-                  </a>
-                )
-              )}
+              <a
+                href="https://x.com/inteliq_xyz"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Twitter
+              </a>
+              <a
+                href="https://inteliq.gitbook.io/inteliq-docs"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Documentation
+              </a>
+              <a
+                href="https://t.me/InteliqTG"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Telegram
+              </a>
             </div>
           </div>
         </div>
