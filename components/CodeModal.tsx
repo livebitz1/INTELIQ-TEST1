@@ -12,7 +12,7 @@ interface CodeModalProps {
 export function CodeModal({ isOpen, onClose }: CodeModalProps) {
   const [copied, setCopied] = useState(false);
   const [copyAnimationComplete, setCopyAnimationComplete] = useState(true);
-  const code = "AB12CD3456"; // Example code
+  const code = "CA WILL LIVE SOON"; // Example code
   const modalRef = useRef<HTMLDivElement>(null);
   const confettiRef = useRef<HTMLDivElement>(null);
   const codeTextControls = useAnimation();
