@@ -8,19 +8,20 @@ import { detectSolanaAddress } from './walletAddressUtils';
 export const parseTransactionRequest = (text) => {
   if (!text) return null;
   
-  const lowerText = text.toLowerCase();
+  // Keep original case for addresses
+  const originalText = text;
   
   // Check if this is a transaction request
-  const isTransferRequest = /\b(send|transfer|pay|give)\b/.test(lowerText);
+  const isTransferRequest = /\b(send|transfer|pay|give)\b/i.test(originalText);
   if (!isTransferRequest) return null;
   
-  // Extract destination address
-  const address = detectSolanaAddress(text);
+  // Extract destination address - preserve case
+  const address = detectSolanaAddress(originalText);
   if (!address) return null;
   
   // Extract amount and token
   const amountTokenRegex = /\b(\d+\.?\d*)\s*(sol|usdc|usdt|bnb|eth|btc)\b/i;
-  const amountTokenMatch = lowerText.match(amountTokenRegex);
+  const amountTokenMatch = originalText.match(amountTokenRegex);
   
   if (!amountTokenMatch) return null;
   
@@ -31,9 +32,9 @@ export const parseTransactionRequest = (text) => {
   
   return {
     type: 'transaction',
-    address,
+    address, // Keep original case
     amount,
     token,
-    originalText: text
+    originalText
   };
 };

@@ -28,6 +28,7 @@ import { CustomScrollbar } from "@/components/custom-scrollbar"
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import type { WalletContextState } from "@solana/wallet-adapter-react"
 import { PublicKey } from '@solana/web3.js'
+import { AIWalletService } from "@/lib/services/ai-wallet-service"
 
 // SuggestionChip component for interactive suggestion buttons
 const SuggestionChip = ({ suggestion, onSelect }: { suggestion: string; onSelect: (s: string) => void }) => (
@@ -422,16 +423,38 @@ export function ChatInterface() {
         return;
       }
 
-      // Parse user intent with proper error handling
-      const intent = await parseUserIntent(input, {
-        walletConnected: wallet.connected,
-        walletAddress: wallet.publicKey?.toString() || "",
-        balance: walletData.solBalance || 0,
-        tokenBalances: walletData.tokens || [],
-      });
+      // Process the request using AIWalletService
+      const response = await AIWalletService.processRequest(input, wallet);
 
-      // Handle the AI response with proper error handling
-      await handleAIResponse(intent);
+      // Add the AI response to messages
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: response.message,
+        },
+      ]);
+
+      // If there's an intent, handle it appropriately
+      if (response.intent) {
+        if (response.intent.action === 'send') {
+          setTransferIntent({
+            type: 'TRANSFER',
+            token: response.intent.fromToken,
+            amount: parseFloat(response.intent.amount),
+            recipient: response.intent.recipient
+          });
+          setShowTransactionConfirmation(true);
+        } else if (response.intent.action === 'swap') {
+          setPendingSwapIntent({
+            type: 'SWAP',
+            fromToken: response.intent.fromToken,
+            toToken: response.intent.toToken,
+            amount: response.intent.amount
+          });
+          setIsConfirmationOpen(true);
+        }
+      }
     } catch (error) {
       console.error("Error in handleSendMessage:", error);
       const errorMessage: AIMessage = {

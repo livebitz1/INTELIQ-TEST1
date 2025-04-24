@@ -1,7 +1,7 @@
-import { detectSolanaAddress } from './wallet-address-utils';
+import { detectSolanaAddress, getCanonicalAddress } from './wallet-address-utils';
 
 export interface TransferIntent {
-  action: 'transfer';
+  action: 'send';
   recipient: string;
   amount: number;
   token: string;
@@ -15,20 +15,28 @@ export interface TransferIntent {
 export function parseTransferCommand(text: string): TransferIntent | null {
   if (!text) return null;
   
-  const lowerText = text.toLowerCase();
+  // Keep original case for addresses
+  const originalText = text;
   
   // Check if this is a transfer command
-  const isTransferCommand = /\b(send|transfer|pay|give)\b/i.test(lowerText);
+  const isTransferCommand = /\b(send|transfer|pay|give)\b/i.test(originalText);
   if (!isTransferCommand) return null;
   
-  // Extract the recipient address
-  const recipientAddress = detectSolanaAddress(text);
+  // Extract the recipient address - preserve case
+  const recipientAddress = detectSolanaAddress(originalText);
   if (!recipientAddress) return null;
+
+  // Get canonical form of the address
+  const canonicalAddress = getCanonicalAddress(recipientAddress);
+  if (!canonicalAddress) {
+    console.error("Invalid recipient address:", recipientAddress);
+    return null;
+  }
   
   // Extract amount and token
   // Pattern for matching patterns like "0.1 SOL", "1.5 USDC", etc.
   const amountTokenPattern = /\b(\d+\.?\d*)\s*(sol|usdc|usdt|bonk|jup|jto|ray|pyth|meme|wif)\b/i;
-  const amountTokenMatch = lowerText.match(amountTokenPattern);
+  const amountTokenMatch = originalText.match(amountTokenPattern);
   
   if (!amountTokenMatch) return null;
   
@@ -39,8 +47,8 @@ export function parseTransferCommand(text: string): TransferIntent | null {
   if (isNaN(amount) || amount <= 0) return null;
   
   return {
-    action: 'transfer',
-    recipient: recipientAddress,
+    action: 'send',
+    recipient: canonicalAddress, // Use canonical form
     amount,
     token
   };

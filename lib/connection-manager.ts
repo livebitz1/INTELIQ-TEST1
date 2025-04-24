@@ -114,7 +114,7 @@ class ConnectionManager {
         }
         
         return result;
-      } catch (error: any) {
+      } catch (error) {
         lastError = error;
         console.warn(`RPC request failed on ${endpoint}: ${error.message}`);
         

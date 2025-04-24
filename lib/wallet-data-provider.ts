@@ -113,7 +113,11 @@ export class WalletDataProvider {
       // Use direct connection with confirmed commitment for reliable balance
       const connection = connectionManager.getConnection();
       const balance = await connection.getBalance(pubkey, 'confirmed');
-      return balance / LAMPORTS_PER_SOL;
+      
+      // Convert lamports to SOL and round to 4 decimal places
+      const solBalance = Number((balance / LAMPORTS_PER_SOL).toFixed(4));
+      console.log(`SOL balance for ${walletAddress}: ${solBalance} SOL`);
+      return solBalance;
     } catch (error) {
       console.error("Failed to fetch SOL balance:", error);
       return 0;
@@ -392,6 +396,119 @@ export class WalletDataProvider {
   }
   
   /**
+   * Get transaction history for a wallet
+   */
+  static async getTransactionHistory(walletAddress: string): Promise<any[]> {
+    try {
+      const connection = connectionManager.getConnection();
+      const publicKey = new PublicKey(walletAddress);
+
+      console.log(`Fetching transactions for wallet: ${walletAddress}`);
+
+      // Get recent transactions with retry logic
+      let signatures;
+      let retryCount = 0;
+      const maxRetries = 3;
+
+      while (retryCount < maxRetries) {
+        try {
+          signatures = await connection.getSignaturesForAddress(
+            publicKey,
+            { 
+              limit: 20, // Increased limit for better coverage
+              commitment: 'confirmed'
+            }
+          );
+          break;
+        } catch (error) {
+          retryCount++;
+          console.error(`Failed to fetch signatures (attempt ${retryCount}/${maxRetries}):`, error);
+          if (retryCount === maxRetries) {
+            throw new Error("Failed to fetch transaction signatures");
+          }
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+        }
+      }
+
+      if (!signatures || signatures.length === 0) {
+        console.log("No transactions found for wallet");
+        return [];
+      }
+
+      console.log(`Found ${signatures.length} transactions`);
+
+      // Get transaction details with retry logic
+      const transactions = await Promise.all(
+        signatures.map(async (sig) => {
+          let retryCount = 0;
+          while (retryCount < maxRetries) {
+            try {
+              const tx = await connection.getParsedTransaction(sig.signature, {
+                maxSupportedTransactionVersion: 0,
+                commitment: 'confirmed'
+              });
+              
+              if (!tx || tx.meta?.err) {
+                return null;
+              }
+
+              // Determine transaction type
+              const type = this.determineTransactionType(tx);
+              
+              // Extract amount
+              const preBalances = tx.meta?.preBalances || [0];
+              const postBalances = tx.meta?.postBalances || [0];
+              const change = Math.abs(postBalances[0] - preBalances[0]) / LAMPORTS_PER_SOL;
+              const amount = change.toFixed(4);
+
+              // Extract recipient
+              let recipient = "Unknown";
+              try {
+                const accounts = tx.transaction.message.accountKeys;
+                if (accounts.length > 1) {
+                  recipient = accounts[1].pubkey.toString().substring(0, 6) + "..." +
+                             accounts[1].pubkey.toString().substring(accounts[1].pubkey.toString().length - 4);
+                }
+              } catch (e) {
+                console.error("Error extracting recipient:", e);
+              }
+
+              return {
+                signature: sig.signature,
+                timestamp: sig.blockTime ? new Date(sig.blockTime * 1000) : new Date(),
+                type,
+                amount,
+                status: "confirmed",
+                recipient
+              };
+            } catch (error) {
+              retryCount++;
+              console.error(`Failed to fetch transaction ${sig.signature} (attempt ${retryCount}/${maxRetries}):`, error);
+              if (retryCount === maxRetries) {
+                console.error(`Failed to fetch transaction ${sig.signature} after ${maxRetries} attempts`);
+                return null;
+              }
+              // Wait before retrying
+              await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+            }
+          }
+          return null;
+        })
+      );
+
+      // Filter out failed transactions and null values
+      const validTransactions = transactions.filter(tx => tx !== null);
+      
+      console.log(`Successfully fetched ${validTransactions.length} valid transactions`);
+      return validTransactions;
+    } catch (error) {
+      console.error("Error fetching transaction history:", error);
+      return [];
+    }
+  }
+  
+  /**
    * Get complete wallet data including transactions
    */
   static async getCompleteWalletData(walletAddress: string): Promise<{
@@ -465,29 +582,24 @@ export class WalletDataProvider {
   }
   
   /**
-   * Extract token info from transaction
+   * Extract token information from transaction
    */
-  static extractTokenInfo(tx: any): {fromToken: string, toToken: string, amount: string} {
-    // Default values
-    let fromToken = "SOL";
+  static extractTokenInfo(tx: any): { fromToken: string; toToken: string; amount: string } {
+    let fromToken = "Unknown";
     let toToken = "";
     let amount = "0";
-    
+
     try {
       const txType = this.determineTransactionType(tx);
       
       if (txType === "swap") {
-        fromToken = "SOL";
-        toToken = "USDC";
-        amount = "0";
-        
-        // Try to find swap amount from instructions
+        // Handle swap transactions
         const instructions = tx.transaction?.message?.instructions || [];
         for (const ix of instructions) {
-          if (ix.programId?.toString() === "11111111111111111111111111111111" && 
-              ix.parsed?.type === "transfer" &&
-              ix.parsed?.info?.lamports) {
-            amount = (ix.parsed.info.lamports / LAMPORTS_PER_SOL).toFixed(4);
+          if (ix.parsed?.type === "swap") {
+            fromToken = ix.parsed.info.fromToken || "Unknown";
+            toToken = ix.parsed.info.toToken || "";
+            amount = ix.parsed.info.amount || "0";
             break;
           }
         }

@@ -193,8 +193,17 @@ export function TransactionHistory() {
 
   return (
     <div className="rounded-xl border border-border/40 bg-card shadow-lg transition-all hover:shadow-xl hover:border-primary/20 overflow-hidden backdrop-blur-sm flex flex-col">
-      <div className="p-4 border-b border-border/40 flex justify-between items-center flex-shrink-0">
-        <h3 className="text-base font-medium">Transaction History</h3>
+      <div className="p-4 border-b border-border/40 flex justify-between items-center flex-shrink-0 bg-gradient-to-r from-background/80 to-background/40">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
+              <path d="M12 22V8" />
+              <path d="m19 15-7 7-7-7" />
+              <path d="M19 8V2H5v6" />
+            </svg>
+          </div>
+          <h3 className="text-base font-medium">Transaction History</h3>
+        </div>
 
         {loading ? (
           <motion.div
@@ -224,7 +233,7 @@ export function TransactionHistory() {
         )}
       </div>
 
-      <div className="divide-y divide-border/40 flex-1 overflow-y-auto h-[calc(100vh-200px)] min-h-0 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto">
         {transactions.length === 0 && !loading ? (
           <motion.div 
             initial={{ opacity: 0 }}
@@ -252,7 +261,7 @@ export function TransactionHistory() {
             </div>
             <p className="text-xs font-medium">No transactions yet</p>
             <p className="text-xs text-center mt-0.5 max-w-[180px]">Your transaction history will appear here</p>
-            <motion.button
+            <motion.button 
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleRefresh}
@@ -285,7 +294,7 @@ export function TransactionHistory() {
                         onClick={() => window.open(`https://explorer.solana.com/tx/${tx.signature}`, '_blank')}
                       >
                         {getTransactionIcon(tx.type)}
-                        <div className="ml-2 flex-1 min-w-0">
+                        <div className="ml-3 flex-1 min-w-0">
                           <div className="flex justify-between items-center">
                             <p className="font-medium text-xs truncate capitalize group-hover:text-primary transition-colors">
                               {tx.type}
@@ -318,7 +327,7 @@ export function TransactionHistory() {
         )}
       </div>
 
-      <div className="p-3 border-t border-border/40">
+      <div className="p-2 border-t border-border/40">
         <motion.button 
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.98 }}

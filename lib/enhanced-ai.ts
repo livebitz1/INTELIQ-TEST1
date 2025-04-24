@@ -768,12 +768,12 @@ ${context.walletConnected ?
       }
       
       return {
-        message: `I'll help you send ${numericAmount} ${token} to ${recipient.slice(0, 4)}...${recipient.slice(-4)}. Please confirm this transaction.`,
+        message: `I'll help you send ${amount} ${token} to ${recipient.slice(0, 4)}...${recipient.slice(-4)}. Please confirm this transaction.`,
         intent: {
-          action: "transfer",
-          recipient,
-          amount: numericAmount,
-          token
+          action: "send",
+          amount: amount,
+          fromToken: token,
+          recipient: recipient
         },
         suggestions: ["Confirm", "Cancel", "Check my balance"]
       };

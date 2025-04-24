@@ -15,7 +15,7 @@ interface TransactionConfirmationModalProps {
     token: string;
     recipient?: string;
     toToken?: string;
-  };
+  } | null;
 }
 
 export function TransactionConfirmationModal({
@@ -53,16 +53,20 @@ export function TransactionConfirmationModal({
     };
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !transaction) return null;
   
   // Format the transaction description based on its type
   const getTransactionDescription = () => {
-    if (transaction.type === "swap") {
-      return `Swap ${transaction.amount} ${transaction.token} to ${transaction.toToken}`;
-    } else if (transaction.type === "transfer") {
-      return `Send ${transaction.amount} ${transaction.token} to ${transaction.recipient?.slice(0, 4)}...${transaction.recipient?.slice(-4)}`;
+    if (!transaction) return "Unknown transaction";
+
+    switch (transaction.type) {
+      case "swap":
+        return `Swap ${transaction.amount} ${transaction.token} to ${transaction.toToken}`;
+      case "transfer":
+        return `Send ${transaction.amount} ${transaction.token} to ${transaction.recipient ? `${transaction.recipient.slice(0, 4)}...${transaction.recipient.slice(-4)}` : 'unknown address'}`;
+      default:
+        return `${transaction.type} ${transaction.amount} ${transaction.token}`;
     }
-    return `${transaction.type} ${transaction.amount} ${transaction.token}`;
   };
 
   return (

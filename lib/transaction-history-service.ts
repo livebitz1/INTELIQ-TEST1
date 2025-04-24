@@ -276,27 +276,74 @@ export class TransactionHistoryService {
       return "No transactions found for the specified criteria.";
     }
     
-    return transactions.map((tx, index) => {
-      const date = new Date(tx.timestamp).toLocaleString();
-      let description = `${tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}`;
+    // Group transactions by date
+    const groupedTxs = transactions.reduce((groups: { [key: string]: TransactionDetails[] }, tx) => {
+      const date = new Date(tx.timestamp).toLocaleDateString();
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+      groups[date].push(tx);
+      return groups;
+    }, {});
+
+    let output = "";
+    
+    // Format each date group
+    Object.entries(groupedTxs).forEach(([date, txs]) => {
+      output += `\n📅 **${date}**\n`;
       
-      if (tx.type === 'swap') {
-        description += ` ${tx.amount} ${tx.fromToken} to ${tx.toToken}`;
-      } else if (tx.type === 'transfer') {
-        description += ` ${tx.amount} ${tx.fromToken}`;
-        if (tx.address) {
-          description += ` to ${tx.address.slice(0, 4)}...${tx.address.slice(-4)}`;
+      txs.forEach((tx, index) => {
+        // Get appropriate emoji based on transaction type
+        const typeEmoji = tx.type === 'swap' ? '🔄' : 
+                         tx.type === 'transfer' ? '💸' : 
+                         '📝';
+        
+        // Get status emoji
+        const statusEmoji = tx.status === 'failed' ? '❌' : '✅';
+        
+        // Format time
+        const time = new Date(tx.timestamp).toLocaleTimeString([], { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        });
+        
+        // Build transaction description
+        let description = `${typeEmoji} ${tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}`;
+        
+        if (tx.type === 'swap') {
+          description += ` ${tx.amount} ${tx.fromToken} → ${tx.toToken}`;
+        } else if (tx.type === 'transfer') {
+          description += ` ${tx.amount} ${tx.fromToken}`;
+          if (tx.address) {
+            description += ` to ${tx.address.slice(0, 4)}...${tx.address.slice(-4)}`;
+          }
+        } else {
+          description += ` ${tx.amount} ${tx.fromToken}`;
         }
-      } else {
-        description += ` ${tx.amount} ${tx.fromToken}`;
-      }
+        
+        // Add status and time
+        description += ` ${statusEmoji} (${time})`;
+        
+        // Add to output with proper indentation
+        output += `  ${index + 1}. ${description}\n`;
+      });
       
-      if (tx.status === 'failed') {
-        description += ' (Failed)';
-      }
-      
-      return `${index + 1}. ${description} - ${date}`;
-    }).join('\n');
+      output += "\n";
+    });
+    
+    // Add a summary at the end
+    const totalTxs = transactions.length;
+    const successfulTxs = transactions.filter(tx => tx.status !== 'failed').length;
+    const failedTxs = totalTxs - successfulTxs;
+    
+    output += `\n📊 **Summary**\n`;
+    output += `  • Total Transactions: ${totalTxs}\n`;
+    output += `  • Successful: ${successfulTxs} ✅\n`;
+    if (failedTxs > 0) {
+      output += `  • Failed: ${failedTxs} ❌\n`;
+    }
+    
+    return output;
   }
   
   /**
