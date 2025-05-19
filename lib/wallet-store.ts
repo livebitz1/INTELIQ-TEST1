@@ -112,6 +112,17 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
       console.log(`Fetching wallet data for ${walletAddress}...`);
       const completeData = await WalletDataProvider.getCompleteWalletData(walletAddress);
       
+      // Ensure we're processing all tokens correctly
+      const tokens = completeData.tokens || [];
+      
+      // Log token summary for debugging
+      if (tokens.length > 0) {
+        const tokenSummary = tokens.map(t => `${t.symbol} (${t.balance})`).join(', ');
+        console.log(`Portfolio contains ${tokens.length} tokens: ${tokenSummary}`);
+      } else {
+        console.warn('No tokens found in wallet data - check token retrieval');
+      }
+      
       // Reset retry count on success
       set({ retryCount: 0 });
       
@@ -119,7 +130,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
         walletData: {
           address: walletAddress,
           solBalance: completeData.solBalance,
-          tokens: completeData.tokens,
+          tokens: tokens,
           recentTransactions: completeData.recentTransactions,
           totalValueUsd: completeData.totalValueUsd,
           isLoading: false,

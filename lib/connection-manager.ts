@@ -48,11 +48,30 @@ class ConnectionManager {
     }
     this.lastRequestTime = now;
     
-    // For token data, prioritize the Helius RPC endpoint
-    if (connectionType === 'token' && RPC_ENDPOINTS[0].includes('helius')) {
-      return this.connections[0];
+    // For token data, prioritize reliable endpoints
+    if (connectionType === 'token') {
+      // Try Helius first for token data (best for SPL token data)
+      if (RPC_ENDPOINTS[0].includes('helius')) {
+        const failures = this.endpointFailures.get(RPC_ENDPOINTS[0]) || 0;
+        if (failures < this.MAX_FAILURES) {
+          return this.connections[0];
+        }
+      }
+      
+      // If Helius has failures, find next best reliable endpoint for token data
+      for (let i = 0; i < this.connections.length; i++) {
+        const endpoint = RPC_ENDPOINTS[i];
+        const failures = this.endpointFailures.get(endpoint) || 0;
+        
+        // Skip endpoints known to have token data issues
+        const isUnreliableForTokens = endpoint.includes('api.mainnet-beta.solana.com');
+        if (!isUnreliableForTokens && failures < this.MAX_FAILURES) {
+          return this.connections[i];
+        }
+      }
     }
     
+    // For other types, use round-robin with failure tracking
     // Find the first connection with acceptable failure count
     for (let i = 0; i < this.connections.length; i++) {
       const index = (this.currentIndex + i) % this.connections.length;

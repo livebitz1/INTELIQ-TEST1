@@ -26,6 +26,7 @@ export interface TransferResponse {
     amount: number;
     token: string;
     fee: number;
+    recommendedAmount?: number;
   };
 }
 
@@ -149,9 +150,14 @@ export class TokenTransferService {
       // Calculate transaction fee (0.000005 SOL)
       const transactionFee = 0.000005;
       
-      // For SOL transfers, check if user has enough balance including fee
+      // Minimum SOL to keep for rent exemption
+      const MIN_SOL_FOR_RENT = 0.001;
+      
+      // For SOL transfers, check if user has enough balance including fee and rent exemption
       if (token === "SOL") {
         const totalRequired = amount + transactionFee;
+        const totalRequiredWithRent = amount + transactionFee + MIN_SOL_FOR_RENT;
+        
         if (senderBalanceInSol < totalRequired) {
           return {
             success: false,
@@ -166,12 +172,30 @@ export class TokenTransferService {
             }
           };
         }
-      } else {
-        // For SPL tokens, check if user has enough SOL for fees
-        if (senderBalanceInSol < transactionFee) {
+        
+        // Check if the transfer would leave enough for rent exemption
+        if (senderBalanceInSol < totalRequiredWithRent) {
+          const safeAmount = Math.max(0, senderBalanceInSol - transactionFee - MIN_SOL_FOR_RENT);
           return {
             success: false,
-            message: `❌ Insufficient SOL for transaction fee. You need ${transactionFee} SOL for fees but have ${senderBalanceInSol.toFixed(6)} SOL.`,
+            message: `❌ You need to keep at least ${MIN_SOL_FOR_RENT} SOL in your wallet for account rent. You can safely send up to ${safeAmount.toFixed(6)} SOL.`,
+            error: "INSUFFICIENT_BALANCE_FOR_RENT",
+            details: {
+              from: wallet.publicKey.toString(),
+              to: recipient,
+              amount,
+              token,
+              fee: transactionFee,
+              recommendedAmount: safeAmount
+            }
+          };
+        }
+      } else {
+        // For SPL tokens, check if user has enough SOL for fees
+        if (senderBalanceInSol < transactionFee + MIN_SOL_FOR_RENT) {
+          return {
+            success: false,
+            message: `❌ Insufficient SOL for transaction fee and account rent. You need at least ${transactionFee + MIN_SOL_FOR_RENT} SOL but have ${senderBalanceInSol.toFixed(6)} SOL.`,
             error: "INSUFFICIENT_FEE",
             details: {
               from: wallet.publicKey.toString(),
@@ -250,13 +274,43 @@ export class TokenTransferService {
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = wallet.publicKey!;
       
+      // First, simulate the transaction to catch potential errors
+      try {
+        const simulationResult = await connection.simulateTransaction(transaction);
+        if (simulationResult.value.err) {
+          console.error("Simulation error:", simulationResult.value.err, simulationResult.value.logs);
+          
+          // Check for rent-related errors
+          const errorMsg = JSON.stringify(simulationResult.value.err);
+          const logs = simulationResult.value.logs || [];
+          const isRentError = errorMsg.includes("insufficient funds for rent") || 
+                             logs.some(log => log.includes("insufficient funds for rent"));
+          
+          if (isRentError) {
+            // Calculate minimum amount to keep in account (0.001 SOL to be safe)
+            const rentExemptMin = 0.001;
+            return {
+              success: false,
+              message: `❌ Transfer failed: You need to keep at least ${rentExemptMin} SOL in your wallet for account rent. Try sending a smaller amount.`,
+              error: "RENT_EXEMPTION_ERROR",
+              txId: "",
+              details
+            };
+          }
+        }
+      } catch (simError) {
+        console.error("Error simulating transaction:", simError);
+        // Continue with the actual transaction, as simulation is just a precaution
+      }
+      
       // Sign and send transaction
       if (!wallet.signTransaction) {
         throw new Error("Wallet does not support signing transactions");
       }
       const signedTransaction = await wallet.signTransaction(transaction);
       const signature = await connection.sendRawTransaction(
-        signedTransaction.serialize()
+        signedTransaction.serialize(),
+        { skipPreflight: false, preflightCommitment: 'confirmed' }
       );
       
       // Wait for confirmation
@@ -268,6 +322,19 @@ export class TokenTransferService {
       }, 'confirmed');
       
       if (confirmation?.value?.err) {
+        // Check for specific error messages and provide user-friendly responses
+        const errorStr = JSON.stringify(confirmation.value.err);
+        
+        if (errorStr.includes("insufficient funds for rent") || errorStr.includes("would result in an account not being rent exempt")) {
+          return {
+            success: false,
+            message: `❌ SOL transfer failed: Not enough SOL left for account rent. Keep at least 0.001 SOL in your wallet and try again with a smaller amount.`,
+            error: "INSUFFICIENT_FUNDS_FOR_RENT",
+            txId: signature,
+            details
+          };
+        }
+        
         return {
           success: false,
           message: `❌ SOL transfer failed: ${confirmation.value.err}`,
@@ -290,19 +357,54 @@ export class TokenTransferService {
         console.error("Failed to update transaction memory:", memoryError);
       }
       
+      const recipientShort = recipient.toString().slice(0, 4) + '...' + recipient.toString().slice(-4);
+      
       return {
         success: true,
-        message: `✅ Successfully sent ${amount} SOL to ${recipient.toString().slice(0, 4)}...${recipient.toString().slice(-4)}`,
+        message: `Successfully transferred ${amount} SOL to wallet ${recipientShort}`,
         txId: signature,
         explorerUrl,
         details
       };
     } catch (error) {
       console.error("SOL transfer error:", error);
+      
+      // Improve error handling with specific error messages
+      const errorMessage = error.message || "Unknown error";
+      
+      if (errorMessage.includes("insufficient funds for rent") || 
+          errorMessage.includes("would result in an account not being rent exempt") ||
+          errorMessage.includes("insufficient lamports")) {
+        return {
+          success: false,
+          message: `❌ SOL transfer failed: Not enough SOL left for account maintenance. Try sending a smaller amount or keep at least 0.001 SOL in your wallet.`,
+          error: "INSUFFICIENT_FUNDS_FOR_RENT",
+          details
+        };
+      }
+      
+      if (errorMessage.includes("failed to send transaction")) {
+        return {
+          success: false,
+          message: `❌ SOL transfer failed: Network error. Please check your connection and try again.`,
+          error: "NETWORK_ERROR",
+          details
+        };
+      }
+      
+      if (errorMessage.includes("Transaction simulation failed")) {
+        return {
+          success: false,
+          message: `❌ SOL transfer failed: The transaction couldn't be processed. Please try a smaller amount or try again later.`,
+          error: "SIMULATION_FAILED",
+          details
+        };
+      }
+      
       return {
         success: false,
-        message: `❌ SOL transfer failed: ${error.message || "Unknown error"}`,
-        error: error.message || "SOL_TRANSFER_ERROR",
+        message: `❌ SOL transfer failed: ${errorMessage}`,
+        error: "SOL_TRANSFER_ERROR",
         details
       };
     }

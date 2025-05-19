@@ -19,6 +19,7 @@ export interface SwapResponse {
   toAmount?: string;
   usdValue?: number;
   error?: string;
+  rawOutputAmount?: number;
 }
 
 // Interface for pre-swap validation
@@ -165,6 +166,9 @@ export class AutoSwapService {
       const outputDecimals = toToken === 'SOL' ? 9 : 6;
       const outputAmount = parseFloat(quoteResponse.outAmount) / Math.pow(10, outputDecimals);
       
+      // Log actual output amount for debugging
+      console.log(`Calculated output amount: ${outputAmount} ${toToken} (from ${amount} ${fromToken})`);
+      
       // 5. Prepare the transaction - NEVER use mock transaction here
       console.log("Preparing swap transaction");
       const txn = await prepareSwapTransaction(walletAddress, quoteResponse, connection);
@@ -204,16 +208,28 @@ export class AutoSwapService {
         }
       } catch (confirmError) {
         console.error("Error confirming transaction:", confirmError);
-        return {
-          success: false,
-          message: `Error confirming transaction: ${confirmError.message}`,
-          error: "CONFIRMATION_ERROR",
-          txId: signature
-        };
+        
+        // Check if it's the API access error or a failed to fetch error - in these cases, 
+        // the transaction might still be successful but we just can't confirm it through the API
+        if (
+          (confirmError.message && confirmError.message.includes("API key is not allowed to access blockchain")) ||
+          (confirmError.message && confirmError.message.includes("failed to get recent blockhash")) ||
+          (confirmError.message && confirmError.message.includes("Failed to fetch"))
+        ) {
+          // Continue with balance checking to see if the swap likely went through
+          console.log("API access or network error but transaction might be successful. Proceeding with balance verification...");
+        } else {
+          return {
+            success: false,
+            message: `Error confirming transaction: ${confirmError.message}`,
+            error: "CONFIRMATION_ERROR",
+            txId: signature
+          };
+        }
       }
       
       // 8. Verify the swap was successful by checking balances
-      console.log("Transaction confirmed, verifying token balances...");
+      console.log("Transaction confirmed or verification skipped, verifying token balances...");
       // Wait a moment to ensure balance updates are available
       await new Promise(resolve => setTimeout(resolve, 2000));
       
@@ -248,12 +264,33 @@ export class AutoSwapService {
       
       // 9. Construct success message and return
       const formattedAmount = parseFloat(amount).toFixed(
-        fromToken === 'SOL' ? 4 : 2
+        fromToken === 'SOL' ? 5 : 2
       );
       
-      const formattedOutput = outputAmount.toFixed(
-        toToken === 'SOL' ? 4 : 2
-      );
+      // When dealing with very small amounts, use more precision
+      let formattedOutput = '';
+      
+      // Special handling for USDC/USDT as they need more precision when amounts are small
+      if (toToken === 'USDC' || toToken === 'USDT') {
+        if (outputAmount < 0.01) {
+          // For very small USDC/USDT amounts, show more decimals
+          formattedOutput = outputAmount.toFixed(8);
+        } else {
+          formattedOutput = outputAmount.toFixed(2);
+        }
+      } else if (outputAmount < 0.0001) {
+        // For extremely small amounts of other tokens, show more decimals
+        formattedOutput = outputAmount.toFixed(6);
+      } else {
+        formattedOutput = outputAmount.toFixed(
+          toToken === 'SOL' ? 5 : 2
+        );
+      }
+      
+      // Make sure we don't return "0.00" for small but non-zero amounts
+      if (outputAmount > 0 && formattedOutput === '0.00') {
+        formattedOutput = outputAmount.toFixed(6);
+      }
       
       let successMessage = `Successfully swapped ${formattedAmount} ${fromToken} for ${formattedOutput} ${toToken}`;
       
@@ -261,8 +298,9 @@ export class AutoSwapService {
         success: true,
         message: successMessage,
         txId: signature,
-        fromAmount: amount,
-        toAmount: outputAmount.toString(),
+        fromAmount: formattedAmount,
+        toAmount: formattedOutput,
+        rawOutputAmount: outputAmount
       };
     } catch (error) {
       console.error("Swap execution error:", error);

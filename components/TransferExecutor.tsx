@@ -50,26 +50,68 @@ export function TransferExecutor({
       );
       
       if (result.success) {
-        notify.success("Transfer Successful", result.message);
+        // Enhanced success notification with clearer messaging
+        const shortRecipient = intent.recipient.slice(0, 4) + '...' + intent.recipient.slice(-4);
+        if (intent.token === 'SOL') {
+          // Make the notification more prominent for SOL transfers
+          notify.success(
+            "✅ SOL Transfer Successful", 
+            `You've successfully sent ${intent.amount} SOL to ${shortRecipient}. Transaction confirmed on the Solana blockchain.`,
+            10000 // Keep visible for 10 seconds
+          );
+          
+          // Add a second notification with the transaction details after a short delay
+          setTimeout(() => {
+            if (result.txId) {
+              notify.info(
+                "Transaction Details", 
+                `Transaction ID: ${result.txId.slice(0, 10)}...${result.txId.slice(-6)}`,
+                8000
+              );
+            }
+          }, 1000);
+        } else {
+          notify.success("Transfer Successful", result.message);
+        }
         
         // Refresh wallet data to show updated balances
         await refreshWalletData();
         
         // Call onSuccess callback if provided
         if (onSuccess) {
-          onSuccess(result);
+          onSuccess({
+            ...result,
+            // Enhance the result with better formatted data for display
+            formattedRecipient: shortRecipient
+          });
         }
       } else {
         notify.error("Transfer Failed", result.message);
         
         // Call onError callback if provided
         if (onError) {
-          onError(new Error(result.message));
+          // Check if it's a rent exemption error and add suggestion if there's a recommended amount
+          if (result.error === "INSUFFICIENT_BALANCE_FOR_RENT" && result.details?.recommendedAmount) {
+            const recommendedAmount = result.details.recommendedAmount;
+            onError(new Error(`${result.message} Try sending ${recommendedAmount.toFixed(6)} SOL instead.`));
+          } else {
+            onError(new Error(result.message));
+          }
         }
       }
     } catch (error) {
       console.error("Error executing transfer:", error);
-      notify.error("Transfer Error", `An unexpected error occurred: ${error.message || "Unknown error"}`);
+      
+      // Check if the error might be related to rent exemption
+      const errorMsg = error.message || "Unknown error";
+      if (errorMsg.includes("rent") || errorMsg.includes("lamports")) {
+        notify.error(
+          "Transfer Error", 
+          `${errorMsg} Try sending a smaller amount to keep some SOL in your wallet for account maintenance.`
+        );
+      } else {
+        notify.error("Transfer Error", `An unexpected error occurred: ${errorMsg}`);
+      }
       
       if (onError) {
         onError(error);

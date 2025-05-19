@@ -170,14 +170,17 @@ export class WalletDataProvider {
         decimals: 9
       }];
       
+      // Flag to track if we successfully got tokens from any method
+      let tokensRetrieved = false;
+      
       try {
         const pubkey = new PublicKey(walletAddress);
         
-        // Use Helius endpoint directly for better token data
-        const heliusUrl = "https://mainnet.helius-rpc.com/?api-key=bc153566-8ac2-4019-9c90-e0ef5b840c07";
-        console.log("Fetching tokens using Helius RPC endpoint...");
-        
+        // First attempt: Try Helius API (more reliable token data)
         try {
+          const heliusUrl = "https://mainnet.helius-rpc.com/?api-key=bc153566-8ac2-4019-9c90-e0ef5b840c07";
+          console.log("Fetching tokens using Helius RPC endpoint...");
+          
           const response = await fetch(heliusUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -191,36 +194,49 @@ export class WalletDataProvider {
             })
           });
           
-          if (response.ok) {
-            const data = await response.json();
-            if (data.result) {
-              const heliusTokens = data.result
-                .filter((item: any) => parseFloat(item.amount) > 0)
-                .map((item: any) => {
-                  const meta = item.tokenMetadata || {};
-                  return {
-                    symbol: meta.symbol || 'Unknown',
-                    name: meta.name || 'Unknown Token',
-                    balance: parseFloat(item.amount),
-                    usdValue: null, // Will calculate below
-                    mint: item.mint,
-                    decimals: item.decimals || 0,
-                    logo: meta.logoURI
-                  };
-                });
-              
-              // Add Helius tokens to our token list
-              tokens.push(...heliusTokens);
-              console.log(`Got ${heliusTokens.length} tokens from Helius API`);
-            }
-          } else {
+          if (!response.ok) {
             throw new Error(`Helius API response error: ${response.status}`);
           }
-        } catch (heliusError) {
-          console.error("Failed to use Helius token API:", heliusError);
           
-          // Fall back to standard RPC method if Helius fails
-          console.log("Falling back to standard RPC method...");
+          const data = await response.json();
+          if (!data.result || data.result.length === 0) {
+            throw new Error('No token data returned from Helius API');
+          }
+          
+          const heliusTokens = data.result
+            .filter((item: any) => parseFloat(item.amount) > 0) // Only tokens with balance
+            .map((item: any) => {
+              const meta = item.tokenMetadata || {};
+              return {
+                symbol: meta.symbol || 'Unknown',
+                name: meta.name || 'Unknown Token',
+                balance: parseFloat(item.amount),
+                usdValue: null, // Will calculate below
+                mint: item.mint,
+                decimals: item.decimals || 0,
+                logo: meta.logoURI
+              };
+            });
+          
+          // Add Helius tokens to our token list (exclude duplicates)
+          if (heliusTokens.length > 0) {
+            console.log(`Got ${heliusTokens.length} tokens from Helius API`);
+            // Filter out SOL (already included)
+            const nonSolTokens = heliusTokens.filter(t => 
+              t.mint !== 'So11111111111111111111111111111111111111112'
+            );
+            tokens.push(...nonSolTokens);
+            tokensRetrieved = true;
+          } else {
+            console.warn('Helius API returned 0 tokens');
+          }
+        } catch (heliusError) {
+          console.warn("Failed to use Helius token API:", heliusError.message);
+        }
+        
+        // Second attempt: Use standard RPC methods if Helius failed or returned no tokens
+        if (!tokensRetrieved) {
+          console.log("Using standard RPC method to fetch tokens...");
           const connection = connectionManager.getConnection('token');
           
           // Using getParsedTokenAccountsByOwner for most reliable data
@@ -230,9 +246,10 @@ export class WalletDataProvider {
             'confirmed'
           );
           
-          console.log(`Found ${tokenAccounts.value.length} token accounts`);
+          console.log(`Found ${tokenAccounts.value.length} token accounts via RPC`);
           
           // Process token accounts
+          let tokensAdded = 0;
           for (const account of tokenAccounts.value) {
             try {
               const info = account.account.data.parsed.info;
@@ -251,6 +268,28 @@ export class WalletDataProvider {
               let name = tokenInfo ? tokenInfo.name : "Unknown Token";
               let decimals = tokenInfo ? tokenInfo.decimals : info.tokenAmount.decimals;
               
+              // Try to identify token from the mint address if not in our metadata
+              if (symbol === "Unknown") {
+                // Enhanced token recognition logic
+                try {
+                  // Check if token is USDC
+                  if (mintAddress === "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v") {
+                    symbol = "USDC";
+                    name = "USD Coin";
+                    decimals = 6;
+                  } 
+                  // Check if token is USDT
+                  else if (mintAddress === "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB") {
+                    symbol = "USDT";
+                    name = "Tether USD";
+                    decimals = 6;
+                  }
+                  // Other common tokens can be added here
+                } catch (error) {
+                  console.warn(`Error identifying token from mint ${mintAddress}:`, error);
+                }
+              }
+              
               // Get USD value
               let usdValue: number | null = null;
               if (symbol !== "Unknown") {
@@ -260,7 +299,7 @@ export class WalletDataProvider {
                     usdValue = balance * price;
                   }
                 } catch (e) {
-                  console.error(`Error getting price for ${symbol}:`, e);
+                  console.warn(`Error getting price for ${symbol}:`, e);
                 }
               }
               
@@ -273,14 +312,19 @@ export class WalletDataProvider {
                 decimals
               });
               
-              console.log(`Found token: ${symbol}, balance: ${balance}`);
+              tokensAdded++;
+              console.log(`Added token: ${symbol}, balance: ${balance}`);
             } catch (e) {
               console.error("Error processing token account:", e);
             }
           }
+          
+          if (tokensAdded > 0) {
+            tokensRetrieved = true;
+          }
         }
-      } catch (e) {
-        console.error("Error getting token accounts:", e);
+      } catch (error) {
+        console.error("Error fetching token accounts:", error);
       }
       
       // Try to get USD prices for all tokens in parallel
@@ -296,6 +340,10 @@ export class WalletDataProvider {
           }
         }
       }));
+      
+      // Log summary of tokens found
+      const tokenSymbols = tokens.map(t => t.symbol).join(', ');
+      console.log(`Final token list: ${tokens.length} tokens - ${tokenSymbols}`);
       
       // Cache the results
       tokenCache.set(cacheKey, {

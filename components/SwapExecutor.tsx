@@ -25,6 +25,31 @@ export function SwapExecutor({
   const [isExecuting, setIsExecuting] = useState(false);
   const [estimatedOutput, setEstimatedOutput] = useState<string | null>(null);
 
+  // Helper function to format very small amounts
+  const formatSmallAmount = (amount: string | number, token: string): string => {
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    
+    // Special handling for USDC/USDT
+    if (token === 'USDC' || token === 'USDT') {
+      if (numAmount < 0.01) {
+        // For very small USDC/USDT amounts (like from tiny SOL swaps)
+        return numAmount.toFixed(8);
+      } else {
+        return numAmount.toFixed(2);
+      }
+    }
+    
+    // For other tokens
+    if (numAmount < 0.0001) {
+      // For tiny amounts of other tokens
+      return numAmount.toFixed(6);
+    } else if (token === 'SOL') {
+      return numAmount.toFixed(5);
+    } else {
+      return numAmount.toFixed(2);
+    }
+  };
+
   useEffect(() => {
     // Get estimate when intent changes
     const getEstimate = async () => {
@@ -66,7 +91,7 @@ export function SwapExecutor({
       const result = await AutoSwapService.executeSwap(intent, wallet);
       
       if (result.success) {
-        notify.success("Swap Successful", result.message);
+        // Clear notification for success case - ChatInterface will handle these
         
         // Refresh wallet data to show updated balances
         await refreshWalletData();
@@ -75,17 +100,107 @@ export function SwapExecutor({
         const postBalances = useWalletStore.getState().walletData;
         console.log("Post-swap wallet data:", postBalances);
         
+        // Check if balances actually changed to provide more accurate feedback
+        const fromToken = intent.fromToken;
+        const toToken = intent.toToken;
+        
+        const fromBalanceBefore = fromToken === 'SOL' 
+          ? preBalances.solBalance 
+          : preBalances.tokens.find(t => t.symbol === fromToken)?.balance || 0;
+        
+        const toBalanceBefore = toToken === 'SOL' 
+          ? preBalances.solBalance 
+          : preBalances.tokens.find(t => t.symbol === toToken)?.balance || 0;
+        
+        const fromBalanceAfter = fromToken === 'SOL' 
+          ? postBalances.solBalance 
+          : postBalances.tokens.find(t => t.symbol === fromToken)?.balance || 0;
+        
+        const toBalanceAfter = toToken === 'SOL' 
+          ? postBalances.solBalance 
+          : postBalances.tokens.find(t => t.symbol === toToken)?.balance || 0;
+        
+        const fromBalanceChanged = fromBalanceAfter < fromBalanceBefore;
+        const toBalanceChanged = toBalanceAfter > toBalanceBefore;
+        
+        console.log(`Balance verification: ${fromToken} ${fromBalanceBefore} -> ${fromBalanceAfter}, ${toToken} ${toBalanceBefore} -> ${toBalanceAfter}`);
+        
         if (onSuccess) {
-          onSuccess(result);
+          // Enhanced result object with more data for better UI
+          onSuccess({
+            ...result,
+            success: true,
+            fromAmount: result.fromAmount || formatSmallAmount(intent.amount, intent.fromToken),
+            toAmount: result.toAmount || formatSmallAmount(estimatedOutput || '0', intent.toToken),
+            balanceVerified: fromBalanceChanged && toBalanceChanged
+          });
+        }
+      } else if (
+        (result.error === "CONFIRMATION_ERROR" && result.message && (
+          result.message.includes("API key is not allowed") ||
+          result.message.includes("failed to get recent blockhash") ||
+          result.message.includes("Failed to fetch") ||
+          result.message.includes("TypeError")
+        )) ||
+        // Also check for these errors which might indicate the transaction was sent but confirmation failed
+        (result.error === "EXECUTION_ERROR" && result.message && (
+          result.message.includes("failed to get recent blockhash") || 
+          result.message.includes("Failed to fetch")
+        ))
+      ) {
+        // For network/API errors, the swap might have been successful but we couldn't confirm it
+        
+        // Refresh wallet data to check for updated balances
+        await refreshWalletData();
+        
+        // Check if balances actually changed to provide more accurate feedback
+        const fromToken = intent.fromToken;
+        const toToken = intent.toToken;
+        
+        const fromBalanceBefore = fromToken === 'SOL' 
+          ? preBalances.solBalance 
+          : preBalances.tokens.find(t => t.symbol === fromToken)?.balance || 0;
+        
+        const fromBalanceAfter = fromToken === 'SOL' 
+          ? useWalletStore.getState().walletData.solBalance 
+          : useWalletStore.getState().walletData.tokens.find(t => t.symbol === fromToken)?.balance || 0;
+        
+        // If the input token balance decreased, likely the swap went through
+        const fromBalanceChanged = fromBalanceAfter < fromBalanceBefore;
+        
+        // Pass a modified result to onSuccess with a user-friendly message
+        if (onSuccess) {
+          onSuccess({
+            ...result,
+            success: true,
+            fromAmount: result.fromAmount || formatSmallAmount(intent.amount, intent.fromToken),
+            toAmount: result.toAmount || formatSmallAmount(estimatedOutput || '0', intent.toToken),
+            message: fromBalanceChanged 
+              ? "Your swap was processed successfully! Your funds should be available in your wallet shortly."
+              : "Your swap may have been processed. Please check your wallet balance and refresh if needed."
+          });
+        }
+      } else {
+        // For other errors
+        notify.error("Swap Failed", result.message || "Unable to complete the swap. Please try again.");
+        
+        if (onError) {
+          onError({
+            ...result,
+            message: result.message || "Swap failed. Please check your wallet and try again."
+          });
         }
       }
       
     } catch (error) {
       console.error("Error executing swap:", error);
-      notify.error("Swap Error", `An unexpected error occurred: ${error.message || "Unknown error"}`);
       
       if (onError) {
-        onError(error);
+        onError({
+          success: false,
+          message: error.message || "An unexpected error occurred during swap. Please try again.",
+          error: "EXECUTION_ERROR"
+        });
       }
     } finally {
       setIsExecuting(false);
