@@ -409,7 +409,7 @@ export const OPERATIONS = {
       /info\s+on\s+(\w+)/i,
     ],
     handler: async (match: RegExpMatchArray, _: any) => {
-      const tokenSymbol = match[1].toUpperCase();
+      let tokenSymbol = match[1].toUpperCase();
       
       // Normalize common token variations
       if (tokenSymbol === "BITCOIN") tokenSymbol = "BTC";
