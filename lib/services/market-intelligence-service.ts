@@ -2,18 +2,63 @@
  * Market Intelligence Service - Provides real-time market data and analysis
  */
 import { coinMarketCapService } from './coinmarketcap-service';
+import { RateLimiter } from '../utils/rate-limiter';
+
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+  source: string;
+}
 
 class MarketIntelligenceService {
-  private tokenPriceCache: Map<string, { price: number, timestamp: number }> = new Map();
-  private cacheDuration = 5 * 60 * 1000; // 5 minutes cache
+  private static instance: MarketIntelligenceService;
+  private tokenPriceCache: Map<string, CacheEntry<number>> = new Map();
+  private marketOverviewCache: CacheEntry<any> | null = null;
+  private trendAnalysisCache: Map<string, CacheEntry<any>> = new Map();
+  
+  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+  private readonly STALE_THRESHOLD = 15 * 60 * 1000; // 15 minutes before data is considered stale
+  
+  // Rate limiter: 30 requests per minute
+  private rateLimiter = new RateLimiter({
+    tokensPerInterval: 30,
+    interval: 'minute'
+  });
+
+  private constructor() {}
+
+  public static getInstance(): MarketIntelligenceService {
+    if (!MarketIntelligenceService.instance) {
+      MarketIntelligenceService.instance = new MarketIntelligenceService();
+    }
+    return MarketIntelligenceService.instance;
+  }
 
   /**
    * Get overview of current market conditions
    */
   async getMarketOverview() {
     try {
+      // Check cache first
+      if (this.marketOverviewCache && 
+          Date.now() - this.marketOverviewCache.timestamp < this.CACHE_DURATION) {
+        return {
+          ...this.marketOverviewCache.data,
+          cached: true,
+          lastUpdated: new Date(this.marketOverviewCache.timestamp).toISOString()
+        };
+      }
+
+      // Wait for rate limiter
+      await this.rateLimiter.removeTokens(1);
+      
       // Get real data from CoinMarketCap service
       const coins = await coinMarketCapService.getLatestListings(20);
+      
+      // Validate data
+      if (!Array.isArray(coins) || coins.length === 0) {
+        throw new Error('Invalid or empty data received from CoinMarketCap');
+      }
       
       // Find SOL, BTC, ETH in the results
       const solData = coins.find(coin => coin.symbol === 'SOL');
@@ -21,27 +66,83 @@ class MarketIntelligenceService {
       const ethData = coins.find(coin => coin.symbol === 'ETH');
       
       // Calculate global market cap
-      const globalMarketCap = coins.reduce((sum, coin) => sum + coin.quote.USD.market_cap, 0);
+      const globalMarketCap = coins.reduce((sum, coin) => {
+        const marketCap = coin.quote?.USD?.market_cap;
+        return sum + (typeof marketCap === 'number' ? marketCap : 0);
+      }, 0);
       
       // Get market sentiment
       const trends = await coinMarketCapService.getMarketTrends();
       
-      return {
+      const overview = {
         trend: trends.marketSentiment,
-        sentiment: trends.marketSentiment === 'bullish' ? 'positive' : trends.marketSentiment === 'bearish' ? 'negative' : 'neutral',
-        solPrice: solData?.quote.USD.price || 0,
-        solChange24h: solData?.quote.USD.percent_change_24h || 0,
-        btcPrice: btcData?.quote.USD.price || 0,
-        btcChange24h: btcData?.quote.USD.percent_change_24h || 0,
-        ethPrice: ethData?.quote.USD.price || 0,
-        ethChange24h: ethData?.quote.USD.percent_change_24h || 0,
-        globalMarketCap: globalMarketCap
+        sentiment: trends.marketSentiment === 'bullish' ? 'positive' : 
+                  trends.marketSentiment === 'bearish' ? 'negative' : 'neutral',
+        solPrice: solData?.quote?.USD?.price || 0,
+        solChange24h: solData?.quote?.USD?.percent_change_24h || 0,
+        btcPrice: btcData?.quote?.USD?.price || 0,
+        btcChange24h: btcData?.quote?.USD?.percent_change_24h || 0,
+        ethPrice: ethData?.quote?.USD?.price || 0,
+        ethChange24h: ethData?.quote?.USD?.percent_change_24h || 0,
+        globalMarketCap: globalMarketCap,
+        lastUpdated: new Date().toISOString(),
+        dataQuality: this.validateDataQuality(coins)
+      };
+
+      // Update cache
+      this.marketOverviewCache = {
+        data: overview,
+        timestamp: Date.now(),
+        source: 'CoinMarketCap'
+      };
+
+      return {
+        ...overview,
+        cached: false
       };
     } catch (error) {
       console.error('Error fetching market overview:', error);
-      // Fallback to random data if API fails
+      
+      // If we have stale cache data, return it with a warning
+      if (this.marketOverviewCache && 
+          Date.now() - this.marketOverviewCache.timestamp < this.STALE_THRESHOLD) {
+        return {
+          ...this.marketOverviewCache.data,
+          cached: true,
+          stale: true,
+          lastUpdated: new Date(this.marketOverviewCache.timestamp).toISOString(),
+          warning: 'Using stale data due to API error'
+        };
+      }
+      
+      // Fallback to random data if no cache available
       return this.generateRandomMarketOverview();
     }
+  }
+
+  /**
+   * Validate data quality
+   */
+  private validateDataQuality(coins: any[]): string {
+    if (!Array.isArray(coins) || coins.length === 0) return 'poor';
+    
+    let validDataPoints = 0;
+    const requiredFields = ['price', 'market_cap', 'volume_24h', 'percent_change_24h'];
+    
+    for (const coin of coins) {
+      if (coin.quote?.USD) {
+        const hasAllFields = requiredFields.every(field => 
+          typeof coin.quote.USD[field] === 'number' && !isNaN(coin.quote.USD[field])
+        );
+        if (hasAllFields) validDataPoints++;
+      }
+    }
+    
+    const quality = validDataPoints / coins.length;
+    if (quality > 0.9) return 'excellent';
+    if (quality > 0.7) return 'good';
+    if (quality > 0.5) return 'fair';
+    return 'poor';
   }
   
   /**
@@ -59,8 +160,9 @@ class MarketIntelligenceService {
       
       // Update cache
       this.tokenPriceCache.set(symbol.toUpperCase(), {
-        price: tokenData.quote.USD.price,
-        timestamp: Date.now()
+        data: tokenData.quote.USD.price,
+        timestamp: Date.now(),
+        source: 'CoinMarketCap'
       });
       
       // Determine trend based on percent change
@@ -232,8 +334,8 @@ class MarketIntelligenceService {
     try {
       // Check cache first
       const cached = this.tokenPriceCache.get(symbol.toUpperCase());
-      if (cached && (Date.now() - cached.timestamp) < this.cacheDuration) {
-        return cached.price;
+      if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
+        return cached.data;
       }
       
       // If not in cache or expired, fetch fresh data
@@ -243,8 +345,9 @@ class MarketIntelligenceService {
       if (tokenData) {
         // Update cache
         this.tokenPriceCache.set(symbol.toUpperCase(), {
-          price: tokenData.quote.USD.price,
-          timestamp: Date.now()
+          data: tokenData.quote.USD.price,
+          timestamp: Date.now(),
+          source: 'CoinMarketCap'
         });
         return tokenData.quote.USD.price;
       }
@@ -452,4 +555,4 @@ class MarketIntelligenceService {
 }
 
 // Export singleton instance
-export const marketIntelligence = new MarketIntelligenceService();
+export const marketIntelligence = MarketIntelligenceService.getInstance();

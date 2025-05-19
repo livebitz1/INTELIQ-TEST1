@@ -80,5 +80,26 @@ export const messariApi = {
       cacheKey,
       30 * 60 * 1000 // 30 minute cache for news
     );
+  },
+
+  /**
+   * Get asset metrics from Messari
+   */
+  getAssetMetrics: async (assetSlug: string) => {
+    try {
+      const response = await fetch(
+        `${BASE_URL}/assets/${assetSlug}/metrics`
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Messari API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data.data;
+    } catch (error) {
+      console.error(`Error fetching Messari metrics for ${assetSlug}:`, error);
+      return null;
+    }
   }
 };
