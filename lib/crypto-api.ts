@@ -170,7 +170,7 @@ export async function getTrendingTokens(): Promise<any[]> {
     // First try to get trending tokens from MarketIntelligence (CoinMarketCap)
     try {
       const analysis = await marketIntelligence.getComprehensiveAnalysis();
-      if (analysis && analysis.topPerformers && analysis.topPerformers.length > 0) {
+      if (analysis && 'overallMarket' in analysis && 'topPerformers' in analysis && analysis.topPerformers.length > 0) {
         return analysis.topPerformers.map((performer: any) => ({
           id: performer.symbol.toLowerCase(),
           name: performer.symbol,
