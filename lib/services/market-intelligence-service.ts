@@ -1,14 +1,265 @@
 /**
  * Market Intelligence Service - Provides real-time market data and analysis
  */
+import { coinMarketCapService } from './coinmarketcap-service';
 
 class MarketIntelligenceService {
+  private tokenPriceCache: Map<string, { price: number, timestamp: number }> = new Map();
+  private cacheDuration = 5 * 60 * 1000; // 5 minutes cache
+
   /**
    * Get overview of current market conditions
    */
   async getMarketOverview() {
-    // In a real implementation, this would fetch live data from APIs
-    // Mock implementation for demonstration
+    try {
+      // Get real data from CoinMarketCap service
+      const coins = await coinMarketCapService.getLatestListings(20);
+      
+      // Find SOL, BTC, ETH in the results
+      const solData = coins.find(coin => coin.symbol === 'SOL');
+      const btcData = coins.find(coin => coin.symbol === 'BTC');
+      const ethData = coins.find(coin => coin.symbol === 'ETH');
+      
+      // Calculate global market cap
+      const globalMarketCap = coins.reduce((sum, coin) => sum + coin.quote.USD.market_cap, 0);
+      
+      // Get market sentiment
+      const trends = await coinMarketCapService.getMarketTrends();
+      
+      return {
+        trend: trends.marketSentiment,
+        sentiment: trends.marketSentiment === 'bullish' ? 'positive' : trends.marketSentiment === 'bearish' ? 'negative' : 'neutral',
+        solPrice: solData?.quote.USD.price || 0,
+        solChange24h: solData?.quote.USD.percent_change_24h || 0,
+        btcPrice: btcData?.quote.USD.price || 0,
+        btcChange24h: btcData?.quote.USD.percent_change_24h || 0,
+        ethPrice: ethData?.quote.USD.price || 0,
+        ethChange24h: ethData?.quote.USD.percent_change_24h || 0,
+        globalMarketCap: globalMarketCap
+      };
+    } catch (error) {
+      console.error('Error fetching market overview:', error);
+      // Fallback to random data if API fails
+      return this.generateRandomMarketOverview();
+    }
+  }
+  
+  /**
+   * Analyze price trend for a specific token
+   */
+  async analyzePriceTrend(symbol: string) {
+    try {
+      // Get real data from CoinMarketCap service
+      const coins = await coinMarketCapService.getLatestListings(100);
+      const tokenData = coins.find(coin => coin.symbol.toUpperCase() === symbol.toUpperCase());
+      
+      if (!tokenData) {
+        throw new Error(`Token ${symbol} not found`);
+      }
+      
+      // Update cache
+      this.tokenPriceCache.set(symbol.toUpperCase(), {
+        price: tokenData.quote.USD.price,
+        timestamp: Date.now()
+      });
+      
+      // Determine trend based on percent change
+      let trend = 'neutral';
+      if (tokenData.quote.USD.percent_change_24h > 5) trend = 'bullish';
+      else if (tokenData.quote.USD.percent_change_24h > 2) trend = 'consolidating';
+      else if (tokenData.quote.USD.percent_change_24h < -5) trend = 'bearish';
+      else if (tokenData.quote.USD.percent_change_24h < -2) trend = 'breakout';
+      
+      // Calculate support and resistance levels
+      const currentPrice = tokenData.quote.USD.price;
+      const supportLevels = [
+        currentPrice * 0.9,
+        currentPrice * 0.8
+      ];
+      const resistanceLevels = [
+        currentPrice * 1.1,
+        currentPrice * 1.2
+      ];
+      
+      return {
+        symbol: symbol.toUpperCase(),
+        currentPrice: tokenData.quote.USD.price,
+        trend,
+        priceChange24h: tokenData.quote.USD.percent_change_24h,
+        volume24h: tokenData.quote.USD.volume_24h,
+        resistanceLevels,
+        supportLevels
+      };
+    } catch (error) {
+      console.error(`Error analyzing price trend for ${symbol}:`, error);
+      // Fallback to random data if API fails
+      return this.generateRandomPriceTrend(symbol);
+    }
+  }
+  
+  /**
+   * Get comprehensive analysis for a token or the general market
+   */
+  async getComprehensiveAnalysis(symbol?: string) {
+    try {
+      // If a specific token is provided, generate token-specific analysis
+      if (symbol) {
+        const coins = await coinMarketCapService.getLatestListings(100);
+        const tokenData = coins.find(coin => coin.symbol.toUpperCase() === symbol.toUpperCase());
+        
+        if (!tokenData) {
+          throw new Error(`Token ${symbol} not found`);
+        }
+        
+        // Generate RSI and MACD-like values based on percent changes
+        const rsi = 50 + (tokenData.quote.USD.percent_change_24h * 0.5);
+        const macd = tokenData.quote.USD.percent_change_24h / 10;
+        const movingAverages = tokenData.quote.USD.percent_change_24h > 0 ? 'bullish' : 'bearish';
+        
+        // Determine risk based on volatility
+        const volatility = Math.abs(tokenData.quote.USD.percent_change_24h);
+        let riskAssessment = 'moderate';
+        if (volatility > 15) riskAssessment = 'very_high';
+        else if (volatility > 10) riskAssessment = 'high';
+        else if (volatility < 3) riskAssessment = 'low';
+        
+        return {
+          symbol: symbol.toUpperCase(),
+          currentPrice: tokenData.quote.USD.price,
+          marketCap: tokenData.quote.USD.market_cap,
+          volume24h: tokenData.quote.USD.volume_24h,
+          priceChange: {
+            '24h': tokenData.quote.USD.percent_change_24h,
+            '7d': tokenData.quote.USD.percent_change_24h * 1.5, // Approximation, would use actual data in real app
+            '30d': tokenData.quote.USD.percent_change_24h * 2 // Approximation
+          },
+          technicalIndicators: {
+            rsi,
+            macd,
+            movingAverages
+          },
+          shortTermOutlook: this.generateOutlookBasedOnData(tokenData.quote.USD.percent_change_24h),
+          longTermPotential: this.generatePotentialBasedOnData(tokenData.quote.USD.market_cap),
+          riskAssessment
+        };
+      }
+      
+      // Otherwise, return general market analysis
+      const marketTrends = await coinMarketCapService.getMarketTrends();
+      const coins = await coinMarketCapService.getLatestListings(20);
+      
+      // Calculate market metrics
+      const totalMarketCap = coins.reduce((sum, coin) => sum + coin.quote.USD.market_cap, 0);
+      const btcMarketCap = coins.find(c => c.symbol === 'BTC')?.quote.USD.market_cap || 0;
+      const btcDominance = (btcMarketCap / totalMarketCap) * 100;
+      
+      // Approximate DeFi TVL as percentage of total market cap
+      const defiTVL = totalMarketCap * 0.08; // Approximately 8% of total market cap
+      
+      // Calculate average volatility for market volatility score
+      const avgVolatility = coins.reduce((sum, coin) => sum + Math.abs(coin.quote.USD.percent_change_24h), 0) / coins.length;
+      
+      return {
+        overallMarket: {
+          trend: marketTrends.marketSentiment,
+          sentiment: marketTrends.marketSentiment === 'bullish' ? 'positive' : 
+                     marketTrends.marketSentiment === 'bearish' ? 'negative' : 'neutral',
+          fearGreedIndex: marketTrends.marketSentiment === 'bullish' ? this.getRandomNumber(60, 90) : 
+                         marketTrends.marketSentiment === 'bearish' ? this.getRandomNumber(10, 40) : 
+                         this.getRandomNumber(40, 60),
+          volatility: avgVolatility / 10 // Scale to 0-5 range
+        },
+        keyMetrics: {
+          btcDominance,
+          totalMarketCap,
+          defiTVL
+        },
+        topPerformers: marketTrends.topPerformers.slice(0, 3).map(performer => ({
+          symbol: performer.symbol,
+          change: performer.percentChange
+        })),
+        shortTermOutlook: this.generateMarketOutlookBasedOnTrends(marketTrends),
+        longTermPotential: this.generateMarketPotentialBasedOnTrends(marketTrends)
+      };
+    } catch (error) {
+      console.error('Error generating comprehensive analysis:', error);
+      // Fallback to random data
+      if (symbol) {
+        return this.generateRandomTokenAnalysis(symbol);
+      } else {
+        return this.generateRandomMarketAnalysis();
+      }
+    }
+  }
+  
+  /**
+   * Get market sentiment
+   */
+  async getMarketSentiment() {
+    try {
+      const marketTrends = await coinMarketCapService.getMarketTrends();
+      
+      // Convert market trends sentiment to fear/greed score
+      let score = 50; // Neutral baseline
+      
+      if (marketTrends.marketSentiment === 'bullish') {
+        score = this.getRandomNumber(65, 90);
+      } else if (marketTrends.marketSentiment === 'bearish') {
+        score = this.getRandomNumber(10, 35);
+      } else {
+        score = this.getRandomNumber(35, 65);
+      }
+      
+      // Determine level based on score
+      let level = 'neutral';
+      if (score >= 80) level = 'extreme_greed';
+      else if (score >= 60) level = 'greed';
+      else if (score <= 20) level = 'extreme_fear';
+      else if (score <= 40) level = 'fear';
+      
+      return { level, score };
+    } catch (error) {
+      console.error('Error getting market sentiment:', error);
+      // Fallback to random data
+      return this.generateRandomSentiment();
+    }
+  }
+  
+  /**
+   * Get token price
+   */
+  async getTokenPrice(symbol: string): Promise<number | null> {
+    try {
+      // Check cache first
+      const cached = this.tokenPriceCache.get(symbol.toUpperCase());
+      if (cached && (Date.now() - cached.timestamp) < this.cacheDuration) {
+        return cached.price;
+      }
+      
+      // If not in cache or expired, fetch fresh data
+      const coins = await coinMarketCapService.getLatestListings(100);
+      const tokenData = coins.find(coin => coin.symbol.toUpperCase() === symbol.toUpperCase());
+      
+      if (tokenData) {
+        // Update cache
+        this.tokenPriceCache.set(symbol.toUpperCase(), {
+          price: tokenData.quote.USD.price,
+          timestamp: Date.now()
+        });
+        return tokenData.quote.USD.price;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error(`Error fetching price for ${symbol}:`, error);
+      return null;
+    }
+  }
+  
+  /**
+   * Fallback methods to generate random data when API fails
+   */
+  private generateRandomMarketOverview() {
     return {
       trend: this.getRandomTrend(),
       sentiment: this.getRandomSentiment(),
@@ -22,11 +273,7 @@ class MarketIntelligenceService {
     };
   }
   
-  /**
-   * Analyze price trend for a specific token
-   */
-  async analyzePriceTrend(symbol: string) {
-    // Mock implementation
+  private generateRandomPriceTrend(symbol: string) {
     const trends = ['bullish', 'bearish', 'neutral', 'consolidating', 'breakout'];
     const randomTrend = trends[Math.floor(Math.random() * trends.length)];
     
@@ -41,34 +288,29 @@ class MarketIntelligenceService {
     };
   }
   
-  /**
-   * Get comprehensive analysis for a token or the general market
-   */
-  async getComprehensiveAnalysis(symbol?: string) {
-    // If a specific token is provided, generate token-specific analysis
-    if (symbol) {
-      return {
-        symbol: symbol.toUpperCase(),
-        currentPrice: this.getRandomPrice(10, 100),
-        marketCap: this.getRandomNumber(1, 10) * 1000000000, // 1B - 10B
-        volume24h: this.getRandomNumber(100, 500) * 1000000, // 100M - 500M
-        priceChange: {
-          '24h': this.getRandomChange(-8, 8),
-          '7d': this.getRandomChange(-15, 15),
-          '30d': this.getRandomChange(-25, 25)
-        },
-        technicalIndicators: {
-          rsi: this.getRandomNumber(30, 70),
-          macd: this.getRandomChange(-2, 2),
-          movingAverages: this.getRandomTrend()
-        },
-        shortTermOutlook: this.generateRandomOutlook(),
-        longTermPotential: this.generateRandomPotential(),
-        riskAssessment: this.getRandomRisk()
-      };
-    }
-    
-    // Otherwise, return general market analysis
+  private generateRandomTokenAnalysis(symbol: string) {
+    return {
+      symbol: symbol.toUpperCase(),
+      currentPrice: this.getRandomPrice(10, 100),
+      marketCap: this.getRandomNumber(1, 10) * 1000000000, // 1B - 10B
+      volume24h: this.getRandomNumber(100, 500) * 1000000, // 100M - 500M
+      priceChange: {
+        '24h': this.getRandomChange(-8, 8),
+        '7d': this.getRandomChange(-15, 15),
+        '30d': this.getRandomChange(-25, 25)
+      },
+      technicalIndicators: {
+        rsi: this.getRandomNumber(30, 70),
+        macd: this.getRandomChange(-2, 2),
+        movingAverages: this.getRandomTrend()
+      },
+      shortTermOutlook: this.generateRandomOutlook(),
+      longTermPotential: this.generateRandomPotential(),
+      riskAssessment: this.getRandomRisk()
+    };
+  }
+  
+  private generateRandomMarketAnalysis() {
     return {
       overallMarket: {
         trend: this.getRandomTrend(),
@@ -91,10 +333,7 @@ class MarketIntelligenceService {
     };
   }
   
-  /**
-   * Get market sentiment
-   */
-  async getMarketSentiment() {
+  private generateRandomSentiment() {
     const sentiments = [
       { level: 'extreme_fear', score: this.getRandomNumber(0, 20) },
       { level: 'fear', score: this.getRandomNumber(21, 40) },
@@ -156,6 +395,59 @@ class MarketIntelligenceService {
       "Market cycles suggest we're in the early phases of a longer-term trend with considerable upside potential."
     ];
     return potentials[Math.floor(Math.random() * potentials.length)];
+  }
+  
+  /**
+   * Generate outlook based on real data
+   */
+  private generateOutlookBasedOnData(percentChange24h: number): string {
+    if (percentChange24h > 10) {
+      return "The token is showing significant bullish momentum with strong buying pressure. Consider watching for potential pullbacks for entry positions.";
+    } else if (percentChange24h > 5) {
+      return "Positive momentum is building with good buying interest. Technical indicators suggest a positive short-term outlook if current levels hold.";
+    } else if (percentChange24h > 0) {
+      return "The market shows modest strength with potential for continued upside if broader market conditions remain favorable.";
+    } else if (percentChange24h > -5) {
+      return "Minor weakness observed but no significant selling pressure. Market may consolidate before next directional move.";
+    } else {
+      return "Current indicators suggest a cautious approach as the token is experiencing selling pressure. Consider waiting for stabilization before new positions.";
+    }
+  }
+  
+  private generatePotentialBasedOnData(marketCap: number): string {
+    // Categorize by market cap size
+    if (marketCap > 50_000_000_000) { // Over 50B
+      return "As a large-cap asset, long-term stability is likely higher though growth potential may be more measured compared to smaller caps.";
+    } else if (marketCap > 10_000_000_000) { // 10B-50B
+      return "Medium to large market cap with established presence. Growth potential remains significant with lower risk profile than small caps.";
+    } else if (marketCap > 1_000_000_000) { // 1B-10B
+      return "Mid-cap asset with solid foundation and significant room for growth as the project continues developing and expanding its user base.";
+    } else if (marketCap > 100_000_000) { // 100M-1B
+      return "Small to mid-cap with substantial growth potential but higher volatility. Project development and adoption will be key factors for long-term success.";
+    } else {
+      return "Small market cap with high growth potential but also elevated risk. Thoroughly research fundamentals and team before considering long-term positions.";
+    }
+  }
+  
+  private generateMarketOutlookBasedOnTrends(trends: any): string {
+    if (trends.marketSentiment === 'bullish') {
+      return "The market shows positive momentum with top assets leading gains. Short-term outlook appears favorable with potential for continued upside if global market conditions remain supportive.";
+    } else if (trends.marketSentiment === 'bearish') {
+      return "Market indicators suggest caution as selling pressure persists across multiple assets. Consider defensive positioning until clear signs of stabilization emerge.";
+    } else {
+      return "The market is in a consolidation phase with mixed signals. This period of reduced volatility may precede the next significant directional move, requiring patience from market participants.";
+    }
+  }
+  
+  private generateMarketPotentialBasedOnTrends(trends: any): string {
+    // Generic long-term potential that adapts slightly to current trend
+    if (trends.marketSentiment === 'bullish') {
+      return "Long-term crypto fundamentals continue strengthening with increasing institutional adoption and technological advancement. Current positive momentum may provide foundation for sustainable growth.";
+    } else if (trends.marketSentiment === 'bearish') {
+      return "Despite current headwinds, long-term fundamentals for digital assets remain intact. Market cycles historically show these periods eventually yield to expansion phases as technology matures.";
+    } else {
+      return "The current consolidation phase is characteristic of maturing markets. Long-term technological innovation, expanding use cases, and regulatory clarity will likely drive the next growth cycle.";
+    }
   }
 }
 

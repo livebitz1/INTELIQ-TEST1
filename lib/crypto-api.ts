@@ -1,4 +1,6 @@
 // Crypto price and market data API
+import { marketIntelligence } from './services/market-intelligence-service';
+
 const COINGECKO_API_BASE = "https://api.coingecko.com/api/v3";
 
 // Cache to reduce API calls
@@ -17,12 +19,21 @@ const TOKEN_IDS: Record<string, string> = {
   "RAY": "raydium",
   "PYTH": "pyth-network",
   "SAMO": "samoyedcoin",
-  "MEME": "memetic"
+  "MEME": "memetic",
+  "BTC": "bitcoin",
+  "ETH": "ethereum"
 };
 
 // Get current token price
 export async function getTokenPrice(symbol: string): Promise<number | null> {
   try {
+    // First, try to get price from MarketIntelligence service (CoinMarketCap)
+    const cmcPrice = await marketIntelligence.getTokenPrice(symbol);
+    if (cmcPrice !== null) {
+      return cmcPrice;
+    }
+    
+    // If CoinMarketCap fails, fall back to the cache or CoinGecko
     // Check cache first
     const cachedData = priceCache.get(symbol.toUpperCase());
     if (cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
@@ -79,6 +90,25 @@ export async function getTokenPrice(symbol: string): Promise<number | null> {
 // Get token market data
 export async function getTokenMarketData(symbol: string): Promise<any | null> {
   try {
+    // Try to get comprehensive analysis from MarketIntelligence first
+    try {
+      const analysis = await marketIntelligence.getComprehensiveAnalysis(symbol);
+      if (analysis && analysis.symbol) {
+        return {
+          name: analysis.symbol,
+          symbol: analysis.symbol,
+          price: analysis.currentPrice,
+          price_change_24h: analysis.priceChange?.['24h'] || 0,
+          market_cap: analysis.marketCap || 0,
+          volume_24h: analysis.volume24h || 0,
+          description: analysis.shortTermOutlook || ""
+        };
+      }
+    } catch (err) {
+      console.log('Failed to get market data from CoinMarketCap, falling back to CoinGecko');
+    }
+    
+    // Fallback to CoinGecko
     // Get token ID from mapping
     const id = TOKEN_IDS[symbol.toUpperCase()];
     if (!id) {
@@ -119,6 +149,24 @@ export async function getTokenMarketData(symbol: string): Promise<any | null> {
 // Get trending tokens
 export async function getTrendingTokens(): Promise<any[]> {
   try {
+    // First try to get trending tokens from MarketIntelligence (CoinMarketCap)
+    try {
+      const analysis = await marketIntelligence.getComprehensiveAnalysis();
+      if (analysis && analysis.topPerformers && analysis.topPerformers.length > 0) {
+        return analysis.topPerformers.map((performer: any) => ({
+          id: performer.symbol.toLowerCase(),
+          name: performer.symbol,
+          symbol: performer.symbol.toUpperCase(),
+          market_cap_rank: 0,
+          thumb: `https://s2.coinmarketcap.com/static/img/coins/64x64/${performer.id || '1'}.png`,
+          score: performer.change
+        }));
+      }
+    } catch (err) {
+      console.log('Failed to get trending tokens from CoinMarketCap, falling back to CoinGecko');
+    }
+    
+    // Fallback to CoinGecko
     // Fetch trending coins from CoinGecko
     const response = await fetch(`${COINGECKO_API_BASE}/search/trending`);
     

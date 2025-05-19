@@ -457,27 +457,62 @@ export const OPERATIONS = {
       /how\s+much\s+(?:is|does)\s+(\w+)\s+cost/i,
       /(\w+)\s+price/i,
     ],
-    handler: (match: RegExpMatchArray, _: any) => {
+    handler: async (match: RegExpMatchArray, _: any) => {
       const tokenSymbol = match[1].toUpperCase();
       
-      if (!TOKEN_INFO[tokenSymbol]) {
+      try {
+        // Attempt to get price from our API integrations
+        const price = await getTokenPrice(tokenSymbol);
+        
+        if (price === null) {
+          return {
+            message: `I couldn't fetch the current price for ${tokenSymbol}. Please try again in a moment.`,
+            intent: {
+              action: "price",
+              token: tokenSymbol,
+              success: false
+            }
+          };
+        }
+        
+        // Format the price nicely
+        let formattedPrice;
+        if (price < 0.01) {
+          formattedPrice = price.toFixed(8);
+        } else if (price < 1) {
+          formattedPrice = price.toFixed(4);
+        } else if (price < 100) {
+          formattedPrice = price.toFixed(2);
+        } else {
+          formattedPrice = Math.round(price).toLocaleString();
+        }
+        
+        // Get token info if available
+        let tokenName = tokenSymbol;
+        if (TOKEN_INFO[tokenSymbol]) {
+          tokenName = TOKEN_INFO[tokenSymbol].name;
+        }
+        
         return {
-          message: `I don't have price information for ${match[1]}. Currently I track: ${Object.keys(TOKEN_INFO).join(", ")}`,
-          intent: null
+          message: `The current price of ${tokenSymbol} (${tokenName}) is $${formattedPrice} USD.`,
+          intent: {
+            action: "price",
+            token: tokenSymbol,
+            price: price,
+            success: true
+          }
+        };
+      } catch (error) {
+        console.error("Error fetching token price:", error);
+        return {
+          message: `I couldn't fetch the current price for ${tokenSymbol}. Please try again in a moment.`,
+          intent: {
+            action: "price",
+            token: tokenSymbol,
+            success: false
+          }
         };
       }
-      
-      const price = getTokenPrice(tokenSymbol);
-      const tokenInfo = TOKEN_INFO[tokenSymbol];
-      
-      return {
-        message: `The current price of ${tokenSymbol} (${tokenInfo.name}) is approximately $${price.toFixed(tokenSymbol === "BONK" ? 8 : 2)} USD.`,
-        intent: {
-          action: "price",
-          token: tokenSymbol,
-          price: price
-        }
-      };
     }
   },
   "history": {
