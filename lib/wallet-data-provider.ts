@@ -5,7 +5,7 @@ import { getTokenPrice } from './crypto-api';
 // Cache to reduce API calls
 const transactionCache = new Map<string, {data: any, timestamp: number}>();
 const tokenCache = new Map<string, {data: any, timestamp: number}>();
-const CACHE_TTL = 30000; // 30 seconds cache lifetime
+const CACHE_TTL = 15000; // 15 seconds cache lifetime for faster updates
 
 // Priority tokens to fetch first
 const PRIORITY_TOKENS = [
@@ -117,8 +117,8 @@ export class WalletDataProvider {
     
     try {
       const pubkey = new PublicKey(walletAddress);
-      // Use direct connection with confirmed commitment for reliable balance
-      const connection = connectionManager.getConnection();
+      // Use token-optimized connection for faster balance fetching
+      const connection = connectionManager.getConnection('token');
       const balance = await connection.getBalance(pubkey, 'confirmed');
       
       // Convert lamports to SOL and round to 4 decimal places
@@ -172,58 +172,57 @@ export class WalletDataProvider {
       
       try {
         const pubkey = new PublicKey(walletAddress);
-        const connection = connectionManager.getConnection();
         
-        // First, try using Helius API if available (via extended RPC methods)
-        if (process.env.NEXT_PUBLIC_SOLANA_RPC_URL?.includes('helius')) {
-          try {
-            const url = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
-            const response = await fetch(url, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                jsonrpc: '2.0',
-                id: 'helius-tokens',
-                method: 'getTokenAccounts',
-                params: { 
-                  wallet: pubkey.toString(),
-                  // Prioritize major tokens
-                  tokenAddresses: PRIORITY_TOKENS
-                }
-              })
-            });
-            
-            if (response.ok) {
-              const data = await response.json();
-              if (data.result) {
-                const heliusTokens = data.result
-                  .filter((item: any) => parseFloat(item.amount) > 0)
-                  .map((item: any) => {
-                    const meta = item.tokenMetadata || {};
-                    return {
-                      symbol: meta.symbol || 'Unknown',
-                      name: meta.name || 'Unknown Token',
-                      balance: parseFloat(item.amount),
-                      usdValue: null, // Will calculate below
-                      mint: item.mint,
-                      decimals: item.decimals || 0,
-                      logo: meta.logoURI
-                    };
-                  });
-                
-                // Add Helius tokens to our token list
-                tokens.push(...heliusTokens);
-                console.log(`Got ${heliusTokens.length} tokens from Helius API`);
+        // Use Helius endpoint directly for better token data
+        const heliusUrl = "https://mainnet.helius-rpc.com/?api-key=bc153566-8ac2-4019-9c90-e0ef5b840c07";
+        console.log("Fetching tokens using Helius RPC endpoint...");
+        
+        try {
+          const response = await fetch(heliusUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              id: 'helius-tokens',
+              method: 'getTokenAccounts',
+              params: { 
+                wallet: pubkey.toString()
               }
+            })
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.result) {
+              const heliusTokens = data.result
+                .filter((item: any) => parseFloat(item.amount) > 0)
+                .map((item: any) => {
+                  const meta = item.tokenMetadata || {};
+                  return {
+                    symbol: meta.symbol || 'Unknown',
+                    name: meta.name || 'Unknown Token',
+                    balance: parseFloat(item.amount),
+                    usdValue: null, // Will calculate below
+                    mint: item.mint,
+                    decimals: item.decimals || 0,
+                    logo: meta.logoURI
+                  };
+                });
+              
+              // Add Helius tokens to our token list
+              tokens.push(...heliusTokens);
+              console.log(`Got ${heliusTokens.length} tokens from Helius API`);
             }
-          } catch (heliusError) {
-            console.error("Failed to use Helius token API, falling back to standard RPC:", heliusError);
+          } else {
+            throw new Error(`Helius API response error: ${response.status}`);
           }
-        }
-        
-        // If no tokens added through Helius (or error), use standard RPC
-        if (tokens.length <= 1) {
-          console.log("Fetching token accounts using standard RPC...");
+        } catch (heliusError) {
+          console.error("Failed to use Helius token API:", heliusError);
+          
+          // Fall back to standard RPC method if Helius fails
+          console.log("Falling back to standard RPC method...");
+          const connection = connectionManager.getConnection('token');
+          
           // Using getParsedTokenAccountsByOwner for most reliable data
           const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
             pubkey,

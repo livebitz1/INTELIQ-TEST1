@@ -357,10 +357,10 @@ export function analyzeMessageForResponseStyle(message: string): {
     needsReassurance
   };
 }
-
 /**
  * Reset pattern usage tracking (call this between sessions)
  */
 export function resetPatternTracking(): void {
   usedPatterns.clear();
 }
+

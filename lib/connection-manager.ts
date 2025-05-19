@@ -2,6 +2,8 @@ import { Connection, PublicKey, ConnectionConfig } from '@solana/web3.js';
 
 // Multiple RPC endpoints for redundancy and fallback
 const RPC_ENDPOINTS = [
+  // Helius RPC endpoint (high performance, token-optimized)
+  "https://mainnet.helius-rpc.com/?api-key=bc153566-8ac2-4019-9c90-e0ef5b840c07",
   process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com",
   "https://rpc.ankr.com/solana", 
   "https://solana-api.projectserum.com",
@@ -38,13 +40,18 @@ class ConnectionManager {
     console.log(`Initialized ${this.connections.length} RPC connections`);
   }
   
-  getConnection(): Connection {
+  getConnection(connectionType?: 'default' | 'token' | 'transaction'): Connection {
     // Reset failure counts periodically
     const now = Date.now();
     if (now - this.lastRequestTime > this.FAILURE_RESET_TIME) {
       this.endpointFailures.clear();
     }
     this.lastRequestTime = now;
+    
+    // For token data, prioritize the Helius RPC endpoint
+    if (connectionType === 'token' && RPC_ENDPOINTS[0].includes('helius')) {
+      return this.connections[0];
+    }
     
     // Find the first connection with acceptable failure count
     for (let i = 0; i < this.connections.length; i++) {

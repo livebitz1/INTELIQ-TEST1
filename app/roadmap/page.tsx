@@ -15,7 +15,7 @@ const roadmapItems = [
   {
     title: "Inteliq V2",
     description: "Enterprise-grade multi-wallet agent control system with voice command capabilities and adaptive execution protocols for seamless portfolio management.",
-    date: "May 20, 2025",
+    date: "May 22, 2025",
     icon: "🚀",
     color: "from-blue-600/20 to-indigo-700/20",
     status: "planning", // planning, development, beta, completed
@@ -24,7 +24,7 @@ const roadmapItems = [
   {
     title: "Advanced Portfolio Analyzer",
     description: "Comprehensive asset summary with AI-driven sentiment analysis, risk assessment metrics, and personalized notification system for market movements.",
-    date: "May 23, 2025",
+    date: "May 25, 2025",
     icon: "📊",
     color: "from-emerald-600/20 to-teal-700/20",
     status: "planning",
@@ -33,7 +33,7 @@ const roadmapItems = [
   {
     title: "Telegram Command Agent",
     description: "Secure remote wallet interaction via encrypted Telegram interface with multi-factor authentication and granular permission controls for enterprise security.",
-    date: "May 25, 2025",
+    date: "May 28, 2025",
     icon: "💬",
     color: "from-sky-600/20 to-blue-700/20",
     status: "planning",
@@ -42,7 +42,7 @@ const roadmapItems = [
   {
     title: "NFT Analyzer Module",
     description: "Full-spectrum NFT analytics platform featuring holder distribution mapping, volatility risk modeling, and comprehensive metadata classification system.",
-    date: "May 27, 2025",
+    date: "May 31, 2025",
     icon: "🖼️",
     color: "from-fuchsia-600/20 to-purple-700/20",
     status: "concept",
@@ -51,7 +51,7 @@ const roadmapItems = [
   {
     title: "Smart Prompt Builder",
     description: "Context-aware action suggestion interface with machine learning optimization for complex transaction sequences and natural language processing enhancements.",
-    date: "May 30, 2025",
+    date: "June 3, 2025",
     icon: "✨",
     color: "from-amber-600/20 to-orange-700/20",
     status: "concept",
@@ -60,7 +60,7 @@ const roadmapItems = [
   {
     title: "Token Utility Dashboard",
     description: "Comprehensive token-gated service platform for accessing premium features, institutional-grade analysis tools, and exclusive market insights.",
-    date: "June 1, 2025",
+    date: "June 6, 2025",
     icon: "🔑",
     color: "from-yellow-600/20 to-amber-700/20",
     status: "concept",

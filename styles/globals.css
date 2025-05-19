@@ -16,6 +16,77 @@
   100% { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes slight-rotation {
+  0% { transform: rotate(0deg); }
+  25% { transform: rotate(1deg); }
+  75% { transform: rotate(-1deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes ping-slow {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.05); opacity: 0.3; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+.animation-delay-300 {
+  animation-delay: 300ms;
+}
+
+/* Token portfolio specific styles */
+.token-icon {
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 0 15px rgba(var(--primary-rgb), 0.2);
+}
+
+.token-icon-wrapper {
+  position: relative;
+}
+
+.token-glow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle, rgba(var(--primary-rgb), 0.6) 0%, rgba(var(--primary-rgb), 0) 70%);
+  opacity: 0;
+  filter: blur(8px);
+  transition: opacity 0.3s ease;
+  z-index: 0;
+}
+
+.token-icon-wrapper:hover .token-glow {
+  opacity: 0.5;
+}
+
+.animate-slight-rotation {
+  animation: slight-rotation 3s ease-in-out infinite;
+}
+
+.animate-ping-slow {
+  animation: ping-slow 3s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Custom scrollbar for the token list */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(var(--primary-rgb), 0.2);
+  border-radius: 20px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(var(--primary-rgb), 0.4);
+}
+
 /* Transaction status animations */
 .transaction-success {
   animation: success-pulse 1.5s ease-in-out;
