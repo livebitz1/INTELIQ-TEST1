@@ -20,6 +20,28 @@ const TOKEN_INFO = {
     year_launched: 2020,
     market_sentiment: "Bullish after 2023 recovery",
   },
+  "BTC": {
+    name: "Bitcoin",
+    decimals: 8,
+    description: "The first and largest cryptocurrency by market capitalization",
+    useCases: "Store of value, medium of exchange, inflation hedge",
+    price_range: "$3,000-$69,000 historically",
+    trend_indicators: ["Hashrate", "Mining difficulty", "Institutional adoption"],
+    category: "L1 blockchain",
+    year_launched: 2009,
+    market_sentiment: "Long-term bullish with cyclical patterns",
+  },
+  "ETH": {
+    name: "Ethereum",
+    decimals: 18,
+    description: "Leading smart contract platform supporting decentralized applications",
+    useCases: "Smart contracts, dApps, DeFi, NFTs, DAOs",
+    price_range: "$80-$4,800 historically",
+    trend_indicators: ["Staking rate", "DeFi TVL", "Layer 2 adoption"],
+    category: "L1 blockchain",
+    year_launched: 2015,
+    market_sentiment: "Strong fundamentals with growing ecosystem",
+  },
   "USDC": {
     name: "USD Coin",
     decimals: 6,
@@ -388,11 +410,16 @@ export const OPERATIONS = {
     ],
     handler: async (match: RegExpMatchArray, _: any) => {
       const tokenSymbol = match[1].toUpperCase();
+      
+      // Normalize common token variations
+      if (tokenSymbol === "BITCOIN") tokenSymbol = "BTC";
+      if (tokenSymbol === "ETHEREUM") tokenSymbol = "ETH";
+      
       const tokenInfo = TOKEN_INFO[tokenSymbol];
       
       if (!tokenInfo) {
         return {
-          message: `I don't have information about ${match[1]}. Currently I have data on: ${Object.keys(TOKEN_INFO).join(", ")}`,
+          message: `I don't have information about ${tokenSymbol}. Currently I have data on: ${Object.keys(TOKEN_INFO).join(", ")}`,
           intent: null
         };
       }
@@ -456,13 +483,20 @@ export const OPERATIONS = {
       /(?:what(?:'|i)?s\s+(?:the|current))?\s*price\s+(?:of|for)\s+(\w+)/i,
       /how\s+much\s+(?:is|does)\s+(\w+)\s+cost/i,
       /(\w+)\s+price/i,
+      /show\s+(?:me\s+)?(?:the\s+)?(?:current\s+)?(\w+)\s+price/i,
     ],
     handler: async (match: RegExpMatchArray, _: any) => {
-      const tokenSymbol = match[1].toUpperCase();
+      let tokenSymbol = match[1].toUpperCase();
+      
+      // Normalize common token variations
+      if (tokenSymbol === "BITCOIN") tokenSymbol = "BTC";
+      if (tokenSymbol === "ETHEREUM") tokenSymbol = "ETH";
       
       try {
+        console.log(`Attempting to fetch price for token: ${tokenSymbol}`);
         // Attempt to get price from our API integrations
         const price = await getTokenPrice(tokenSymbol);
+        console.log(`Price result for ${tokenSymbol}: ${price !== null ? price : 'null'}`);
         
         if (price === null) {
           return {
@@ -1472,6 +1506,18 @@ export async function parseUserIntent(
     };
 
     const lowerPrompt = prompt.toLowerCase();
+    
+    // Handle direct price queries early since they're common
+    const priceMatch = lowerPrompt.match(/(?:price|cost|value|worth)\s+(?:of|for)?\s+(\w+)/i) || 
+                      lowerPrompt.match(/(\w+)\s+price/i) ||
+                      lowerPrompt.match(/show\s+(?:me\s+)?(?:the\s+)?(?:current\s+)?(\w+)\s+price/i);
+    
+    if (priceMatch && priceMatch[1]) {
+      const token = priceMatch[1].toUpperCase();
+      console.log(`Detected direct price query for: ${token}`);
+      const priceHandler = OPERATIONS["price"];
+      return await priceHandler.handler(priceMatch, enhancedContext);
+    }
     
     if (lowerPrompt.startsWith('send') || lowerPrompt.startsWith('transfer') || 
         lowerPrompt.startsWith('pay') || lowerPrompt.startsWith('give')) {
