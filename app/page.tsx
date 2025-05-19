@@ -87,7 +87,7 @@ export default function Home() {
           description: "Convert between different tokens", 
           icon: <ArrowLeftRight className="w-4 h-4" />,
           action: () => {
-            insertCommand("Swap 0.5 SOL to USDC");
+            insertCommand("Swap tokens");
             closeCommandPalette();
           }
         },

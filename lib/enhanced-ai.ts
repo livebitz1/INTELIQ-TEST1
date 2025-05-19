@@ -760,7 +760,7 @@ ${context.walletConnected ?
         : "Please connect your wallet to access all features.";
       
       return {
-        message: `I'm your advanced Web3 AI assistant. ${connectionStatus}\n\nHere's what I can help you with:\n\n1. **Token Swaps** - Example: "Swap 1 SOL to USDC"\n2. **Balance Check** - Example: "Check my balance"\n3. **Transaction History** - Example: "Show my recent transactions"\n4. **Token Information** - Example: "Tell me about SOL"\n5. **Market Trends** - Example: "What are the market trends?"\n6. **Help** - Example: "What can you do?"\n\nI support many tokens including SOL, USDC, BONK, USDT, JUP, JTO, RAY, PYTH, MEME, and WIF. I can also provide real-time price estimates when performing swaps.`,
+        message: `I'm your advanced Web3 AI assistant. ${connectionStatus}\n\nHere's what I can help you with:\n\n1. **Token Swaps** - Example: "Swap 1 SOL to USDC" or "Swap 10 BONK to WIF". You can swap between any supported tokens.\n2. **Balance Check** - Example: "Check my balance"\n3. **Transaction History** - Example: "Show my recent transactions"\n4. **Token Information** - Example: "Tell me about SOL"\n5. **Market Trends** - Example: "What are the market trends?"\n6. **Help** - Example: "What can you do?"\n\nI support many tokens including SOL, USDC, BONK, USDT, JUP, JTO, RAY, PYTH, MEME, and WIF. I can also provide real-time price estimates when performing swaps between any of these tokens.`,
         intent: {
           action: "help"
         }

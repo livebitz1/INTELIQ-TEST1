@@ -152,8 +152,8 @@ export function ChatInterface() {
   const [suggestions, setSuggestions] = useState<string[]>([
     "Check my balance",
     "What can you help me with?",
-    "How do I swap tokens?",
-    "Tell me about Solana",
+    "How do I swap between any tokens?",
+    "Tell me about supported tokens",
   ])
   const [input, setInput] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
