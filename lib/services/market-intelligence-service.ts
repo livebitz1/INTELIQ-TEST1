@@ -42,6 +42,56 @@ class MarketIntelligenceService {
   }
   
   /**
+   * Get comprehensive analysis for a token or the general market
+   */
+  async getComprehensiveAnalysis(symbol?: string) {
+    // If a specific token is provided, generate token-specific analysis
+    if (symbol) {
+      return {
+        symbol: symbol.toUpperCase(),
+        currentPrice: this.getRandomPrice(10, 100),
+        marketCap: this.getRandomNumber(1, 10) * 1000000000, // 1B - 10B
+        volume24h: this.getRandomNumber(100, 500) * 1000000, // 100M - 500M
+        priceChange: {
+          '24h': this.getRandomChange(-8, 8),
+          '7d': this.getRandomChange(-15, 15),
+          '30d': this.getRandomChange(-25, 25)
+        },
+        technicalIndicators: {
+          rsi: this.getRandomNumber(30, 70),
+          macd: this.getRandomChange(-2, 2),
+          movingAverages: this.getRandomTrend()
+        },
+        shortTermOutlook: this.generateRandomOutlook(),
+        longTermPotential: this.generateRandomPotential(),
+        riskAssessment: this.getRandomRisk()
+      };
+    }
+    
+    // Otherwise, return general market analysis
+    return {
+      overallMarket: {
+        trend: this.getRandomTrend(),
+        sentiment: this.getRandomSentiment(),
+        fearGreedIndex: this.getRandomNumber(0, 100),
+        volatility: this.getRandomNumber(1, 5)
+      },
+      keyMetrics: {
+        btcDominance: this.getRandomNumber(40, 60),
+        totalMarketCap: this.getRandomNumber(2, 3) * 1000000000000, // 2-3T
+        defiTVL: this.getRandomNumber(50, 100) * 1000000000 // 50B-100B
+      },
+      topPerformers: [
+        { symbol: 'SOL', change: this.getRandomChange(5, 15) },
+        { symbol: 'ETH', change: this.getRandomChange(3, 10) },
+        { symbol: 'BTC', change: this.getRandomChange(1, 8) }
+      ],
+      shortTermOutlook: this.generateRandomOutlook(),
+      longTermPotential: this.generateRandomPotential()
+    };
+  }
+  
+  /**
    * Get market sentiment
    */
   async getMarketSentiment() {
@@ -79,6 +129,33 @@ class MarketIntelligenceService {
   
   private getRandomNumber(min: number, max: number) {
     return parseFloat((Math.random() * (max - min) + min).toFixed(2));
+  }
+  
+  private getRandomRisk() {
+    const risks = ['low', 'moderate', 'high', 'very_high'];
+    return risks[Math.floor(Math.random() * risks.length)];
+  }
+  
+  private generateRandomOutlook() {
+    const outlooks = [
+      "The market shows signs of consolidation with potential for an upward breakout if key resistance levels are overcome.",
+      "Current indicators suggest a cautious approach as the market appears to be in a corrective phase.",
+      "Technical analysis points to a continuation of the current trend with possible acceleration in momentum.",
+      "Market conditions appear favorable in the short term, but watch for potential resistance at higher levels.",
+      "Volatility is expected to increase with signs pointing to a period of uncertainty."
+    ];
+    return outlooks[Math.floor(Math.random() * outlooks.length)];
+  }
+  
+  private generateRandomPotential() {
+    const potentials = [
+      "Long-term fundamentals remain strong despite short-term volatility.",
+      "Institutional adoption continues to strengthen the long-term thesis.",
+      "Technological advancements and continued development provide a solid foundation for future growth.",
+      "Regulatory clarity would significantly impact the long-term potential, which remains a key variable.",
+      "Market cycles suggest we're in the early phases of a longer-term trend with considerable upside potential."
+    ];
+    return potentials[Math.floor(Math.random() * potentials.length)];
   }
 }
 

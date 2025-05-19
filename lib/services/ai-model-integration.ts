@@ -185,7 +185,7 @@ export class AIModelIntegrationService {
     // For market-related queries, add market intelligence
     if (this.isMarketQuery(prompt) && !result.message.includes("market")) {
       const marketSentiment = await marketIntelligence.getMarketSentiment();
-      result.message += `\n\nCurrent market context: ${marketSentiment.slice(0, 150)}...`;
+      result.message += `\n\nCurrent market context: Market sentiment is ${marketSentiment.level} with a score of ${marketSentiment.score}.`;
     }
     
     // Improve suggestions based on context and knowledge

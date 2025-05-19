@@ -277,7 +277,8 @@ export function TokenDisplay() {
                             onError={(e) => {
                               // Fallback if image fails to load
                               (e.target as HTMLImageElement).style.display = 'none';
-                              (e.target as HTMLImageElement).parentElement!.querySelector('.fallback-icon')!.style.display = 'flex';
+                              const fallbackIcon = (e.target as HTMLImageElement).parentElement!.querySelector('.fallback-icon') as HTMLElement;
+                              if (fallbackIcon) fallbackIcon.style.display = 'flex';
                             }}
                           />
                         ) : (
