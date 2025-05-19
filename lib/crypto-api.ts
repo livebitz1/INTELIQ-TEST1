@@ -111,10 +111,10 @@ export async function getTokenMarketData(symbol: string): Promise<any | null> {
     // Try to get comprehensive analysis from MarketIntelligence first
     try {
       const analysis = await marketIntelligence.getComprehensiveAnalysis(symbol);
-      if (analysis && analysis.symbol) {
+      if (analysis && 'currentPrice' in analysis) {
         return {
-          name: analysis.symbol,
-          symbol: analysis.symbol,
+          name: symbol,
+          symbol: symbol,
           price: analysis.currentPrice,
           price_change_24h: analysis.priceChange?.['24h'] || 0,
           market_cap: analysis.marketCap || 0,
