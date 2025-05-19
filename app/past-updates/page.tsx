@@ -867,7 +867,7 @@ export default function PastUpdates() {
               <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
                 <span className="text-primary font-bold text-xs">IQ</span>
               </div>
-              <p className="text-sm">© 2023 INTELIQ. All rights reserved.</p>
+              <p className="text-sm">© 2025 INTELIQ. All rights reserved.</p>
             </div>
 
         

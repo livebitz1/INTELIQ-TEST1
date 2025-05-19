@@ -724,7 +724,7 @@ export default function Home() {
                   />
                 </motion.div>
               </div>
-              <p className="text-sm">© 2023 INTELIQ. All rights reserved.</p>
+              <p className="text-sm">© 2025 INTELIQ. All rights reserved.</p>
             </div>
 
             <div className="flex space-x-6">
