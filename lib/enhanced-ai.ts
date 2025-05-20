@@ -148,9 +148,11 @@ const SUPPORTED_TOKENS = Object.keys(TOKEN_INFO);
 // General knowledge base for non-crypto topics
 const GENERAL_KNOWLEDGE = {
   "greetings": [
-    "Hello! How can I help with your Web3 journey today?",
-    "Hi there! I'm your AI assistant for Web3 and crypto. What can I do for you?",
-    "Hey! Ready to explore the blockchain world together?"
+    "Hello there! 👋 I'm your friendly Web3 assistant. How can I help you today?",
+    "Hi! Great to see you! I'm here to help with anything crypto-related. What's on your mind?",
+    "Hey! 😊 Welcome back! How can I assist with your crypto journey today?",
+    "Hello! I'm your Web3 companion. Need help with swaps, balances, or just have questions?",
+    "Hi there! Ready to dive into the world of crypto? I'm here to guide you!"
   ],
   "thanks": [
     "You're welcome! Happy to assist with your crypto needs.",
@@ -169,7 +171,7 @@ const GENERAL_KNOWLEDGE = {
 // Handle casual conversations not related to specific operations
 const CONVERSATION_PATTERNS = {
   "greeting": [
-    /^(?:hi|hello|hey|howdy|greetings|good\s+(?:morning|afternoon|evening)|what'?s\s+up)/i
+    /^(?:hi|hello|hey|howdy|greetings|good\s+(?:morning|afternoon|evening)|what'?s\s+up|yo|hiya|heya|sup|hola|hi\s+there|hello\s+there)/i
   ],
   "farewell": [
     /^(?:bye|goodbye|see\s+you|farewell|later|have\s+a\s+(?:good|nice|great)\s+(?:day|night|evening))/i
@@ -1461,7 +1463,8 @@ function handleGeneralChat(prompt: string): { message: string } {
       if (prompt.match(pattern)) {
         if (type === 'greeting') {
           const responses = GENERAL_KNOWLEDGE['greetings'];
-          return { message: responses[Math.floor(Math.random() * responses.length)] };
+          const randomIndex = Math.floor(Math.random() * responses.length);
+          return { message: responses[randomIndex] };
         } else if (type === 'farewell') {
           return { message: "Goodbye! Feel free to return whenever you have Web3 questions or want to make transactions." };
         } else if (type === 'thanks') {

@@ -12,7 +12,7 @@ import { TransactionHistoryService, TransactionDetails } from '../transaction-hi
 interface AIResponse {
   message: string;
   intent?: {
-    action: 'send' | 'swap' | 'balance' | 'history' | 'price' | 'meme';
+    action: 'send' | 'swap' | 'balance' | 'history' | 'price' | 'meme' | 'greeting' | 'help_query';
     amount?: string;
     fromToken?: string;
     toToken?: string;
@@ -24,11 +24,11 @@ interface AIResponse {
 
 export class AIWalletService {
   private static greetings = [
-    "Hi there!",
-    "Hello!",
-    "Hey!",
-    "Greetings!",
-    "Welcome back!"
+    "Hello! I'm your professional crypto assistant.",
+    "Welcome! How may I assist you with your crypto needs today?",
+    "Greetings! I'm here to help with your blockchain transactions.",
+    "Hello there! Ready to assist with your Web3 requirements.",
+    "Welcome back! I'm your dedicated crypto wallet assistant."
   ];
 
   private static farewells = [
@@ -66,19 +66,35 @@ export class AIWalletService {
       const intent = this.parseRequest(request);
       if (!intent) {
         return {
-          message: `${this.getRandomGreeting()} I'm not quite sure what you'd like to do. You can ask me to:\n\n` +
+          message: `${this.getRandomGreeting()}\n\nI can assist you with the following services:\n\n` +
             `• Send tokens (e.g., "send 0.001 SOL to [wallet address]")\n` +
             `• Swap tokens (e.g., "swap 0.001 SOL to USDC")\n` +
             `• Check your balance (e.g., "how much do I have?")\n` +
             `• View transaction history (e.g., "show my recent transactions")\n` +
             `• Check crypto prices (e.g., "what's the price of BTC?")\n` +
             `• Analyze meme coins (e.g., "analyze this token: [address]")\n\n` +
-            `What would you like to do?`
+            `Please let me know how I can help you with your crypto needs today.`
         };
       }
 
       // Execute the appropriate action
-      if (intent.action === 'history') {
+      if (intent.action === 'greeting') {
+        return {
+          message: this.getRandomGreeting(),
+          intent
+        };
+      } else if (intent.action === 'help_query') {
+        return {
+          message: `I can help you with crypto transactions and information. I can:\n\n` +
+                  `• Send and swap tokens\n` +
+                  `• Check your wallet balance\n` +
+                  `• Show transaction history\n` +
+                  `• Provide crypto price information\n` +
+                  `• Analyze token information\n\n` +
+                  `Just tell me what you'd like to do!`,
+          intent
+        };
+      } else if (intent.action === 'history') {
         try {
           // First check if wallet is connected and has balance
           const walletData = await WalletDataProvider.getWalletData(wallet.publicKey.toString());
@@ -348,6 +364,33 @@ export class AIWalletService {
     // Keep original case for addresses
     const requestText = request;
     const lowerRequest = requestText.toLowerCase();
+
+    // Check for simple greetings
+    const greetingPatterns = [
+      /^(?:hi|hello|hey|howdy|greetings|good\s+(?:morning|afternoon|evening)|what'?s\s+up|yo|hiya|heya|sup|hola|hi\s+there|hello\s+there)$/i
+    ];
+
+    for (const pattern of greetingPatterns) {
+      if (pattern.test(lowerRequest)) {
+        return { action: 'greeting' };
+      }
+    }
+    
+    // Check for help queries
+    const helpQueryPatterns = [
+      /^(?:how|what) can you (?:help|do|assist)/i,
+      /^what (?:can|could) you (?:help|do|assist)/i,
+      /^(?:help|assist) me/i,
+      /^what (?:are your|are the) (?:capabilities|functions)/i,
+      /^(?:tell me|show me) (?:what|how) you can (?:do|help)/i,
+      /^what (?:do|can) you (?:offer|provide)/i
+    ];
+    
+    for (const pattern of helpQueryPatterns) {
+      if (pattern.test(lowerRequest)) {
+        return { action: 'help_query' };
+      }
+    }
 
     // Check for history request first with more specific patterns
     const historyPatterns = [
