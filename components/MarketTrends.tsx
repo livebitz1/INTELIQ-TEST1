@@ -55,6 +55,8 @@ export function MarketTrends() {
   const [marketSummary, setMarketSummary] = useState<MarketSummary | null>(null);
 
   useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null;
+    
     const fetchMarketData = async () => {
       try {
         setLoading(true);
@@ -74,23 +76,45 @@ export function MarketTrends() {
           // Calculate market summary data
           calculateMarketSummary(response.data.data);
         } else {
-          throw new Error('Invalid data structure received');
+          // If we have previously loaded data, keep it and show a minor error message
+          if (marketData.length > 0) {
+            console.warn('Invalid data structure received, using previous data');
+            setLastUpdated(`${new Date().toLocaleTimeString()} (cached)`);
+          } else {
+            throw new Error('Invalid data structure received');
+          }
         }
       } catch (err) {
         console.error('Error fetching market data:', err);
-        setError('Failed to fetch market data');
+        // In production, if we have previous data, keep showing it with a warning
+        if (marketData.length > 0) {
+          setError('Refresh failed - using cached data');
+          setLastUpdated(`${new Date().toLocaleTimeString()} (cached)`);
+        } else {
+          setError('Failed to fetch market data');
+        }
       } finally {
         setLoading(false);
       }
     };
 
+    // Initial fetch
     fetchMarketData();
 
-    // Refresh data every 2 minutes (CoinMarketCap recommends avoiding too frequent requests)
-    const intervalId = setInterval(fetchMarketData, 2 * 60 * 1000);
+    // Clear any existing intervals before setting a new one
+    if (intervalId) clearInterval(intervalId);
+    
+    // Set exact 5 second refresh interval
+    intervalId = setInterval(() => {
+      console.log('Refreshing market data at 5-second interval');
+      fetchMarketData();
+    }, 5000);
 
-    return () => clearInterval(intervalId);
-  }, []);
+    // Cleanup function to clear the interval when component unmounts
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, []); // Empty dependency array to ensure this only runs once
 
   const calculateMarketSummary = (data: CoinData[]) => {
     if (!data || data.length === 0) return;
@@ -272,7 +296,16 @@ export function MarketTrends() {
         <div>
           <h3 className="text-base font-medium">Market Analysis</h3>
           {!loading && !error && (
-            <p className="text-xs text-muted-foreground">Updated: {lastUpdated}</p>
+            <p className="text-xs text-muted-foreground flex items-center">
+              Updated: {lastUpdated}
+              <span 
+                className="ml-2 h-2 w-2 rounded-full bg-green-500 animate-pulse" 
+                title="Real-time updates active (refreshes every 5 seconds)"
+              ></span>
+            </p>
+          )}
+          {!loading && error && (
+            <p className="text-xs text-red-500">{error}</p>
           )}
         </div>
 

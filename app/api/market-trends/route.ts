@@ -1,26 +1,68 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 
-// Create a simple cache to reduce API calls
+// Create a simple cache with strict 5-second duration
 let cachedData: any = null;
 let cacheTime: number = 0;
-const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
+const CACHE_DURATION = 5000; // Exactly 5 seconds (more consistent than using multiplication)
+
+// Track request timestamps to prevent multiple simultaneous requests
+let lastRequestTime = 0;
+const REQUEST_THROTTLE = 1000; // Minimum 1 second between requests
 
 export async function GET() {
   try {
-    // Check if we have a valid cache
     const now = Date.now();
+    
+    // Return from cache if still valid
     if (cachedData && now - cacheTime < CACHE_DURATION) {
-      return NextResponse.json(cachedData);
+      return NextResponse.json({
+        ...cachedData,
+        meta: {
+          cached: true,
+          age: Math.floor((now - cacheTime) / 1000),
+          refresh_in: Math.ceil((CACHE_DURATION - (now - cacheTime)) / 1000)
+        }
+      });
     }
+    
+    // Throttle requests to prevent simultaneous calls
+    if (now - lastRequestTime < REQUEST_THROTTLE) {
+      // Too many requests in quick succession, return cache with explanation
+      if (cachedData) {
+        return NextResponse.json({
+          ...cachedData,
+          meta: {
+            cached: true,
+            throttled: true,
+            age: Math.floor((now - cacheTime) / 1000)
+          }
+        });
+      }
+    }
+    
+    lastRequestTime = now;
     
     // If no cache or expired, fetch new data
     const apiKey = process.env.COINMARKETCAP_API_KEY;
     
     if (!apiKey) {
+      console.error('CoinMarketCap API key not configured');
+      // Return fallback data or cached data if available
+      if (cachedData) {
+        return NextResponse.json({
+          ...cachedData,
+          status: {
+            ...cachedData.status,
+            error_message: 'API key not configured, using cached data',
+            cache_age: Math.floor((now - cacheTime) / 1000)
+          }
+        });
+      }
       throw new Error('CoinMarketCap API key not configured');
     }
     
+    // Add timeout to prevent long-hanging requests
     const response = await axios.get('https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest', {
       params: {
         start: 1,
@@ -31,7 +73,8 @@ export async function GET() {
       },
       headers: {
         'X-CMC_PRO_API_KEY': apiKey,
-      }
+      },
+      timeout: 4000 // 4 seconds timeout
     });
     
     // Add enhanced analytics data
@@ -47,7 +90,9 @@ export async function GET() {
           bearishCoins: response.data.data.filter((coin: any) => coin.quote.USD.percent_change_24h < 0).length,
           totalCoins: response.data.data.length
         }
-      }
+      },
+      // Add timestamp for client to check freshness
+      refreshedAt: now
     };
     
     // Cache the data
@@ -55,6 +100,7 @@ export async function GET() {
     cacheTime = now;
     
     return NextResponse.json(enhancedResponse);
+    
   } catch (error: any) {
     console.error('CoinMarketCap API error:', error.response?.data || error.message);
     
