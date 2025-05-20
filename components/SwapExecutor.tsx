@@ -135,6 +135,16 @@ export function SwapExecutor({
             balanceVerified: fromBalanceChanged && toBalanceChanged
           });
         }
+      } else if (result.error === "UNSUPPORTED_TOKEN") {
+        // Special handling for unsupported tokens
+        console.log("Detected unsupported token error:", result.message);
+        if (onError) {
+          onError({
+            success: false,
+            message: result.message,
+            error: "UNSUPPORTED_TOKEN"
+          });
+        }
       } else if (
         (result.error === "CONFIRMATION_ERROR" && result.message && (
           result.message.includes("API key is not allowed") ||
@@ -195,11 +205,20 @@ export function SwapExecutor({
     } catch (error) {
       console.error("Error executing swap:", error);
       
+      // Check if this is a user rejection
+      const isUserRejection = error.message && (
+        error.message.includes("User rejected") || 
+        error.message.includes("Transaction was not confirmed") ||
+        error.message.includes("User denied")
+      );
+      
       if (onError) {
         onError({
           success: false,
-          message: error.message || "An unexpected error occurred during swap. Please try again.",
-          error: "EXECUTION_ERROR"
+          message: isUserRejection 
+            ? "Transaction cancelled by user"
+            : error.message || "An unexpected error occurred during swap. Please try again.",
+          error: isUserRejection ? "USER_REJECTED" : "EXECUTION_ERROR"
         });
       }
     } finally {

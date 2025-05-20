@@ -52,14 +52,14 @@ export class AutoSwapService {
       if (!supportedTokens.includes(fromToken)) {
         return {
           valid: false,
-          reason: `${fromToken} is not supported for swapping`
+          reason: `${fromToken} is not supported yet in our utilities. Please try other supported coins like USDT, USDC, SOL.`
         };
       }
       
       if (!supportedTokens.includes(toToken)) {
         return {
           valid: false,
-          reason: `${toToken} is not supported for swapping`
+          reason: `${toToken} is not supported yet in our utilities. Please try other supported coins like USDT, USDC, SOL.`
         };
       }
       
@@ -143,6 +143,24 @@ export class AutoSwapService {
       
       const { fromToken, toToken, amount } = intent;
       const walletAddress = wallet.publicKey.toString();
+      
+      // First validate the tokens are supported
+      const supportedTokens = ["SOL", "USDC", "USDT", "BONK", "JUP", "RAY", "PYTH", "WIF", "JTO", "MEME"];
+      if (!supportedTokens.includes(fromToken)) {
+        return {
+          success: false,
+          message: `${fromToken} is not supported yet in our utilities. Please try other supported coins like USDT, USDC, SOL.`,
+          error: "UNSUPPORTED_TOKEN"
+        };
+      }
+      
+      if (!supportedTokens.includes(toToken)) {
+        return {
+          success: false,
+          message: `${toToken} is not supported yet in our utilities. Please try other supported coins like USDT, USDC, SOL.`,
+          error: "UNSUPPORTED_TOKEN"
+        };
+      }
       
       // 1. Capture pre-swap balances for verification
       const connection = connectionManager.getConnection();
@@ -304,6 +322,19 @@ export class AutoSwapService {
       };
     } catch (error) {
       console.error("Swap execution error:", error);
+      
+      // Check if this is a user rejection
+      if (error.message && (
+        error.message.includes("User rejected") || 
+        error.message.includes("Transaction was not confirmed") ||
+        error.message.includes("User denied"))) {
+        return {
+          success: false,
+          message: "Transaction cancelled by user",
+          error: "USER_REJECTED"
+        };
+      }
+      
       return {
         success: false,
         message: `Swap failed: ${error.message || "Unknown error"}`,

@@ -146,7 +146,7 @@ export function ChatInterface() {
   const [messages, setMessages] = useState<AIMessage[]>([
     {
       role: "assistant",
-      content: "Hi! I'm your Web3 AI assistant. How can I help you with Solana transactions today?",
+      content: "Welcome to your professional Web3 AI assistant! I'm here to help you manage your Solana transactions, provide real-time cryptocurrency market analysis, and offer insights on tokens. You can ask about prices, market trends, swap tokens, or manage your wallet with natural language commands. How may I assist you today?",
     },
   ])
   const [suggestions, setSuggestions] = useState<string[]>([
@@ -179,6 +179,8 @@ export function ChatInterface() {
   const [showTransactionConfirmation, setShowTransactionConfirmation] = useState(false)
   const [isExecutingTransfer, setIsExecutingTransfer] = useState(false)
   const [transaction, setTransaction] = useState<any>(null)
+  // Add a ref to track if we've already added a welcome message
+  const walletConnectedMessageShown = useRef<boolean>(false)
 
   // Fetch crypto market data
   useEffect(() => {
@@ -201,29 +203,18 @@ export function ChatInterface() {
     }
   }, [])
 
-  // Update suggestions to include market-related questions once market data is loaded
+  // Update suggestions once market data is loaded without adding duplicate message
   useEffect(() => {
-    if (marketDataLoaded && !messages.some((m) => m.content.includes("cryptocurrency prices"))) {
-      // Add a subtle hint about crypto data capabilities after the welcome message
-      setTimeout(() => {
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content:
-              "I can also provide you with real-time cryptocurrency prices and market trends. Feel free to ask me about Bitcoin, Ethereum, or any other major cryptocurrency! You can even paste token contract addresses from Ethereum, BSC, or Solana to get detailed information.",
-          },
-        ])
-        // Update suggestions to include market-related queries
-        setSuggestions([
-          "What's the price of Bitcoin?",
-          "How is the crypto market doing?",
-          "Show me top performing coins",
-          "Analyze this: 0x2260fac5e5542a773aa44fbcfedf7c193bc2c599", // Example WBTC address
-        ])
-      }, 1000)
+    if (marketDataLoaded) {
+      // Only update suggestions without adding another message
+      setSuggestions([
+        "What's the price of Bitcoin?",
+        "How is the crypto market doing?",
+        "Show me top performing coins",
+        "Analyze this: 0x2260fac5e5542a773aa44fbcfedf7c193bc2c599", // Example WBTC address
+      ]);
     }
-  }, [marketDataLoaded, messages])
+  }, [marketDataLoaded])
 
   // Determine if user is at bottom of chat
   const isNearBottom = useCallback(() => {
@@ -290,8 +281,7 @@ export function ChatInterface() {
   // Set wallet address when connected
   useEffect(() => {
     if (wallet.connected && wallet.publicKey) {
-      const publicKey = wallet.publicKey;
-      setWalletAddress(publicKey.toString())
+      setWalletAddress(wallet.publicKey.toString())
     }
   }, [wallet.publicKey, wallet.connected, setWalletAddress])
 
@@ -299,29 +289,44 @@ export function ChatInterface() {
   useEffect(() => {
     if (wallet.connected && wallet.publicKey) {
       const publicKey = wallet.publicKey;
-      // Only add welcome message if it doesn't exist yet
+      
+      // Check if we've already shown a wallet connected message during this session
+      if (walletConnectedMessageShown.current) {
+        return;
+      }
+      
+      // Check if wallet connection message already exists in messages
       if (!messages.some((m) => m.content.includes("wallet is connected"))) {
         setMessages((prev) => [
           ...prev,
           {
             role: "assistant",
-            content: `Great! Your wallet is connected. Your address is ${formatWalletAddress(publicKey.toString())}. How can I assist you with your Solana transactions?`,
+            content: `Great! Your wallet is connected. Your address is ${formatWalletAddress(publicKey.toString())}. How can I assist you?`,
           },
-        ])
+        ]);
+        
+        // Mark that we've shown the message to prevent duplicates
+        walletConnectedMessageShown.current = true;
+        return;
       }
 
-      // Set welcome message once data is loaded
-      if (walletData.solBalance > 0 && !messages.some((m) => m.content.includes("wallet has")) && messages.length < 3) {
+      // Only show wallet balance message if wallet is loaded and no welcome message was shown yet
+      if (walletData.solBalance > 0 && 
+          !messages.some((m) => m.content.includes("wallet has")) && 
+          !walletConnectedMessageShown.current) {
         setMessages((prev) => [
           ...prev,
           {
             role: "assistant",
             content: `I see your wallet has ${walletData.solBalance.toFixed(4)} SOL and ${walletData.tokens.length} other tokens. What would you like to do today?`,
           },
-        ])
+        ]);
+        
+        // Mark that we've shown the message
+        walletConnectedMessageShown.current = true;
       }
     }
-  }, [wallet.connected, wallet.publicKey, walletData, messages])
+  }, [wallet.connected, wallet.publicKey, walletData, messages]);
 
   // Auto-grow textarea as user types
   useEffect(() => {
@@ -629,6 +634,8 @@ ${result.txId ? `🔍 [View transaction details on Solana Explorer](https://expl
   }
 
   const handleSwapError = (error: any) => {
+    console.log("Handling swap error:", error.message);
+    
     // Check for various network/API errors that might actually indicate successful transactions
     const isNetworkError = error.message && (
       error.message.includes("API key is not allowed to access blockchain") ||
@@ -637,7 +644,71 @@ ${result.txId ? `🔍 [View transaction details on Solana Explorer](https://expl
       error.message.includes("TypeError")
     );
     
-    if (isNetworkError) {
+    // Check if this is a user rejection error
+    const isUserRejection = error.message && 
+      (error.message.includes("User rejected the request") || 
+       error.message.includes("Transaction was not confirmed"));
+    
+    // Check for unknown token errors - catch all variations
+    const isUnknownTokenError = error.message && (
+      error.message.includes("Unknown token") || 
+      error.message.includes("Failed to get swap quote") ||
+      error.message.includes("is not supported yet in our utilities") ||
+      (error.error === "UNSUPPORTED_TOKEN")
+    );
+    
+    // Extract token name from error message with improved regex
+    let tokenName = "The requested token";
+    
+    if (error.message) {
+      const unknownTokenMatch = error.message.match(/Unknown token:?\s*([A-Z0-9]+)/i);
+      const notSupportedMatch = error.message.match(/([A-Z0-9]+)\s+is not supported/i);
+      
+      if (unknownTokenMatch) {
+        tokenName = unknownTokenMatch[1];
+      } else if (notSupportedMatch) {
+        tokenName = notSupportedMatch[1];
+      }
+    }
+    
+    console.log("Error classification:", { 
+      isNetworkError, 
+      isUserRejection, 
+      isUnknownTokenError,
+      tokenName
+    });
+    
+    if (isUnknownTokenError) {
+      // Professional message for unsupported tokens - override any previous message
+      const unsupportedTokenMessage = {
+        role: "assistant",
+        content: `ℹ️ **Token Not Supported**
+
+${tokenName} is not supported yet in our utilities. Please try swapping other supported coins like USDT, USDC, SOL, BONK, JUP, RAY, or other available tokens.
+
+Would you like to view the list of supported tokens or check current market prices?`,
+      }
+      
+      // Remove any previous error messages about this token to avoid duplication
+      setMessages(prev => {
+        const filteredMessages = prev.filter(msg => 
+          !(msg.role === "assistant" && 
+            msg.content.includes(tokenName) && 
+            msg.content.includes("not supported"))
+        );
+        return [...filteredMessages, unsupportedTokenMessage as AIMessage];
+      });
+      
+      // Also show a notification
+      notify.info(
+        "Token Not Supported", 
+        `${tokenName} is not supported. Please try other tokens.`,
+        5000
+      );
+      
+      // Make sure we don't process this error further
+      return;
+    } else if (isNetworkError) {
       // Provide a more user-friendly message for potential success cases
       const successWithWarningMessage = {
         role: "assistant",
@@ -646,8 +717,8 @@ ${result.txId ? `🔍 [View transaction details on Solana Explorer](https://expl
 Your swap was processed and sent to the Solana network, but I couldn't fully verify the final confirmation due to a network limitation.
 
 ${error.message.includes("failed to get recent blockhash") || error.message.includes("TypeError") ? 
-  "The Solana network is experiencing some congestion, but your transaction was submitted." : 
-  "There was a temporary API limitation in verifying your transaction."}
+"The Solana network is experiencing some congestion, but your transaction was submitted." : 
+"There was a temporary API limitation in verifying your transaction."}
 
 Your funds should appear in your wallet shortly. You can check your wallet balance to confirm.
 
@@ -661,13 +732,34 @@ Is there anything else you'd like me to help you with?`,
         "Transaction sent but verification limited. Check your wallet balance.",
         8000
       )
+    } else if (isUserRejection) {
+      // Professional message for user rejection without "sorry"
+      const rejectionMessage = {
+        role: "assistant",
+        content: `❌ **Transaction Cancelled**
+
+The swap transaction was cancelled. You can try again whenever you're ready.
+
+Would you like to:
+- Try the swap with a different amount
+- Swap different tokens
+- Check current market rates`,
+      }
+      setMessages((prev) => [...prev, rejectionMessage as AIMessage])
+      
+      // Also show a notification
+      notify.error(
+        "Transaction Cancelled", 
+        "Swap cancelled by user",
+        5000
+      )
     } else {
-      // For other errors, show a more user-friendly error message
+      // For other errors, show a more user-friendly error message without "sorry"
       const errorMessage = {
         role: "assistant",
         content: `❌ **Swap Failed**
 
-Sorry, I wasn't able to complete your swap. ${error.message || "Please try again."} 
+The swap could not be completed. ${error.message || "Please try again."} 
 
 You may want to:
 - Try again with a different amount
@@ -752,11 +844,13 @@ You may want to:
                 setMessages([
                   {
                     role: "assistant",
-                    content: "Hi! I'm your Web3 AI assistant. How can I help you with Solana transactions today?",
+                    content: "Welcome to your professional Web3 AI assistant! I'm here to help you manage your Solana transactions, provide real-time cryptocurrency market analysis, and offer insights on tokens. You can ask about prices, market trends, swap tokens, or manage your wallet with natural language commands. How may I assist you today?",
                   },
                 ])
                 setShouldAutoScroll(true)
                 setShowScrollButton(false)
+                // Reset the wallet connected message flag so it can show again after reset
+                walletConnectedMessageShown.current = false
               }}
               className="p-2 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
               aria-label="Reset conversation"

@@ -18,7 +18,7 @@ const JUPITER_V6_API = 'https://quote-api.jup.ag/v6';
 function getMintAddress(tokenSymbol: string): string {
   const mint = TOKEN_MINTS[tokenSymbol.toUpperCase()];
   if (!mint) {
-    throw new Error(`Unknown token: ${tokenSymbol}`);
+    throw new Error(`${tokenSymbol} is not supported yet in our utilities. Please try other supported coins like USDT, USDC, SOL.`);
   }
   return mint;
 }
@@ -68,7 +68,12 @@ export async function getSwapQuote(
     return data;
   } catch (error) {
     console.error('Error getting swap quote:', error);
-    throw new Error(`Failed to get swap quote: ${error.message}`);
+    // Pass through any specialized error messages but wrap generic ones
+    if (error.message && error.message.includes('not supported yet in our utilities')) {
+      throw error;
+    } else {
+      throw new Error(`Failed to get swap quote: ${error.message}`);
+    }
   }
 }
 

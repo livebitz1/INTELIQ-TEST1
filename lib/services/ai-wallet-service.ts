@@ -282,7 +282,7 @@ export class AIWalletService {
             };
           }
           return {
-            message: `I'm sorry, but ${result.message} Would you like to try again?`,
+            message: `${result.message} Would you like to try again?`,
             intent
           };
         }
@@ -304,7 +304,7 @@ export class AIWalletService {
           };
         } else {
           return {
-            message: `I'm sorry, but ${result.message} Would you like to try again?`,
+            message: `${result.message} Would you like to try again?`,
             intent
           };
         }
